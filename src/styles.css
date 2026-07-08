@@ -33,7 +33,7 @@ canvas.painting { cursor: crosshair; }
 .naturalist,
 .stewardship,
 .viewbar,
-.hovercard,
+.chronicle,
 .open-tools {
   border: 1px solid rgba(255,255,255,.10);
   background: rgba(3, 8, 8, .68);
@@ -218,14 +218,16 @@ button.active {
 .tool.fertility.active { border-color: #c6dd68; background: rgba(198,221,104,.17); }
 .tool.wildfire.active { border-color: #ff754d; background: rgba(255,117,77,.18); }
 
-.brush-control {
+.brush-control,
+.time-control {
   display: grid;
   gap: 8px;
   margin-top: 12px;
   padding-top: 11px;
   border-top: 1px solid rgba(255,255,255,.09);
 }
-.brush-control span {
+.brush-control span,
+.time-control span {
   display: flex;
   justify-content: space-between;
   color: #9db0aa;
@@ -233,7 +235,22 @@ button.active {
   text-transform: uppercase;
   letter-spacing: .08em;
 }
-.brush-control strong { color: #e9f1ee; }
+.brush-control strong,
+.time-control strong { color: #e9f1ee; }
+.time-control {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(255,255,255,.09);
+}
+.time-control small {
+  min-height: 13px;
+  color: #7f948d;
+  font-size: 10px;
+  letter-spacing: .02em;
+}
+.time-control input[type="range"] { accent-color: #74d795; }
 input[type="range"] {
   width: 100%;
   accent-color: #8fd8ae;
@@ -257,29 +274,56 @@ input[type="range"] {
 }
 .hidden { display: none !important; }
 
-.hovercard {
+.chronicle {
   position: absolute;
-  width: 280px;
-  z-index: 5;
-  border-radius: 14px;
-  padding: 10px 12px;
-  pointer-events: none;
+  right: 16px;
+  bottom: 16px;
+  width: min(390px, calc(100vw - 32px));
+  max-height: min(430px, calc(100vh - 150px));
+  border-radius: 20px;
+  padding: 12px;
+  overflow: hidden;
+  pointer-events: auto;
 }
-.hovercard strong {
-  display: block;
-  color: #eaf5f0;
-  font-size: 12px;
+.chronicle-list {
+  display: grid;
+  gap: 7px;
+  max-height: 330px;
+  overflow: auto;
+  padding-right: 3px;
 }
-.hovercard span,
-.hovercard small {
-  display: block;
-  color: #94aaa2;
+.chronicle-entry {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 11px;
+  text-align: left;
+  color: #cbd8d3;
+  font-size: 11px;
+  line-height: 1.38;
+  background: rgba(255,255,255,.035);
+}
+.chronicle-entry.latest {
+  border-color: rgba(154,211,179,.44);
+  background: rgba(116,215,149,.10);
+}
+.chronicle-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.chronicle-meta strong {
+  color: #a9dfbd;
   font-size: 10px;
-  line-height: 1.45;
-  margin-top: 3px;
-  text-transform: capitalize;
+  text-transform: uppercase;
+  letter-spacing: .10em;
 }
-.hovercard small { color: #bdccc7; text-transform: none; }
+.chronicle-meta em {
+  color: #879b94;
+  font-size: 10px;
+  font-style: normal;
+}
 
 .help {
   position: absolute;
@@ -304,6 +348,7 @@ input[type="range"] {
   .viewbar { top: 78px; max-width: calc(100vw - 32px); overflow-x: auto; }
   .stewardship { top: 132px; right: 12px; width: 276px; max-height: calc(100vh - 210px); }
   .naturalist { left: 12px; bottom: 12px; width: min(390px, calc(100vw - 24px)); }
+  .chronicle { right: 12px; bottom: 12px; width: min(360px, calc(100vw - 24px)); }
   .help { display: none; }
 }
 
@@ -313,4 +358,5 @@ input[type="range"] {
   .viewbar button:nth-child(-n+4) { display: none; }
   .stewardship { left: 12px; right: 12px; width: auto; }
   .naturalist { font-size: 12px; }
+  .chronicle { left: 12px; right: 12px; width: auto; max-height: 48vh; }
 }

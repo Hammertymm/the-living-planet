@@ -11,7 +11,7 @@ app.innerHTML = `
   <div class="topbar">
     <section class="brand">
       <h1>The Living Planet</h1>
-      <p>v0.3 · Stewardship Tools</p>
+      <p>v0.5 · Time Flow</p>
     </section>
     <section class="metrics" id="metrics"></section>
   </div>
@@ -25,6 +25,7 @@ app.innerHTML = `
     <button id="pause">Pause</button>
     <button id="labels" class="active">Labels</button>
     <button id="recenter">Recenter</button>
+    <button id="chronicle-toggle">Chronicle</button>
   </div>
 
   <section class="naturalist">
@@ -58,13 +59,30 @@ app.innerHTML = `
       <span>Influence radius <strong id="brush-value">8</strong></span>
       <input id="brush-size" type="range" min="2" max="22" value="8" />
     </label>
-    <div class="pan-hint">Observe mode: drag to pan. With a tool selected: <strong>Shift-drag</strong> or right-drag to pan.</div>
+
+    <label class="time-control" for="time-rate">
+      <span>Time flow <strong id="time-rate-value">1×</strong></span>
+      <input id="time-rate" type="range" min="0" max="6" step="1" value="2" aria-label="Simulation time flow" />
+      <small id="time-rate-caption">Normal observation</small>
+    </label>
+
+    <div class="pan-hint">Observe mode: drag to pan. With a tool selected: <strong>Shift-drag</strong> or right-drag to pan. Use <strong>[</strong> and <strong>]</strong> to change time flow.</div>
   </section>
 
   <button id="open-tools" class="open-tools hidden">Stewardship tools</button>
 
-  <aside class="hovercard hidden" id="hovercard"></aside>
-  <div class="help">Wheel zoom · R recenter · L labels · Space pause · Esc observe</div>
+  <section class="chronicle hidden" id="chronicle">
+    <div class="panel-heading">
+      <div>
+        <h2>World Chronicle</h2>
+        <p>Recent moments recorded by the Naturalist. Select one to travel there.</p>
+      </div>
+      <button id="close-chronicle" class="icon-button" title="Close chronicle">×</button>
+    </div>
+    <div class="chronicle-list" id="chronicle-list"></div>
+  </section>
+
+  <div class="help">Wheel zoom · R recenter · L labels · C chronicle · [ ] time flow · Space pause · Esc observe</div>
 </div>`;
 
 const canvas = document.querySelector<HTMLCanvasElement>('#world')!;
@@ -73,6 +91,11 @@ const renderer = new Renderer(canvas);
 let paused = false;
 let last = performance.now();
 let accumulator = 0;
+const BASE_STEP_MS = 55;
+const TIME_RATES = [0.25, 0.5, 1, 1.5, 2, 3, 4] as const;
+const TIME_RATE_LABELS = ['Very slow', 'Slow observation', 'Normal observation', 'Lively', 'Fast', 'Very fast', 'Time-lapse'] as const;
+let timeRateIndex = 2;
+let timeRate = TIME_RATES[timeRateIndex];
 let lastUiDay = -1;
 let activeTool: PlacementTool = 'observe';
 let brushRadius = 8;
@@ -87,13 +110,19 @@ let lastPaintY = Number.NaN;
 
 const metrics = document.querySelector<HTMLElement>('#metrics')!;
 const noteElement = document.querySelector<HTMLElement>('#note')!;
-const hovercard = document.querySelector<HTMLElement>('#hovercard')!;
 const labelsButton = document.querySelector<HTMLButtonElement>('#labels')!;
 const pauseButton = document.querySelector<HTMLButtonElement>('#pause')!;
 const stewardship = document.querySelector<HTMLElement>('#stewardship')!;
 const openTools = document.querySelector<HTMLButtonElement>('#open-tools')!;
 const brushInput = document.querySelector<HTMLInputElement>('#brush-size')!;
 const brushValue = document.querySelector<HTMLElement>('#brush-value')!;
+const timeRateInput = document.querySelector<HTMLInputElement>('#time-rate')!;
+const timeRateValue = document.querySelector<HTMLElement>('#time-rate-value')!;
+const timeRateCaption = document.querySelector<HTMLElement>('#time-rate-caption')!;
+const chronicle = document.querySelector<HTMLElement>('#chronicle')!;
+const chronicleList = document.querySelector<HTMLElement>('#chronicle-list')!;
+const chronicleToggle = document.querySelector<HTMLButtonElement>('#chronicle-toggle')!;
+let chronicleSignature = '';
 
 function drawMetrics(force = false): void {
   if (!force && lastUiDay === sim.state.day) return;
@@ -114,20 +143,53 @@ function drawMetrics(force = false): void {
     : 'The planet is quiet.';
 }
 
+function drawChronicle(force = false): void {
+  const signature = sim.state.notes.map((entry) => `${entry.day}:${entry.regionId ?? ''}:${entry.text}`).join('|');
+  if (!force && signature === chronicleSignature) return;
+  chronicleSignature = signature;
+
+  chronicleList.innerHTML = sim.state.notes.map((entry, index) => {
+    const region = entry.regionId ? sim.state.regions.find((candidate) => candidate.id === entry.regionId) : undefined;
+    return `<button class="chronicle-entry${index === 0 ? ' latest' : ''}" data-region="${entry.regionId ?? ''}">
+      <span class="chronicle-meta"><strong>Day ${entry.day}</strong>${region ? `<em>${region.name}</em>` : ''}</span>
+      <span>${entry.text}</span>
+    </button>`;
+  }).join('');
+
+  chronicleList.querySelectorAll<HTMLButtonElement>('[data-region]').forEach((button) => {
+    button.onclick = () => {
+      const region = sim.state.regions.find((candidate) => candidate.id === button.dataset.region);
+      if (region) renderer.focus(region.x, region.y, 9);
+    };
+  });
+}
+
+function setChronicle(open: boolean): void {
+  chronicle.classList.toggle('hidden', !open);
+  chronicleToggle.classList.toggle('active', open);
+  if (open) drawChronicle(true);
+}
+
 function frame(time: number): void {
   const delta = Math.min(200, time - last);
   last = time;
   accumulator += delta;
   if (!paused) {
-    while (accumulator > 55) {
+    const stepInterval = BASE_STEP_MS / timeRate;
+    let stepsThisFrame = 0;
+    while (accumulator >= stepInterval && stepsThisFrame < 12) {
       sim.step();
-      accumulator -= 55;
+      accumulator -= stepInterval;
+      stepsThisFrame += 1;
     }
+    // Avoid a huge catch-up burst after the tab has been hidden.
+    if (stepsThisFrame === 12) accumulator = Math.min(accumulator, stepInterval);
   } else {
     accumulator = 0;
   }
   renderer.render(sim.state);
   drawMetrics();
+  drawChronicle();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -159,6 +221,18 @@ brushInput.oninput = () => {
   renderer.brush.radius = brushRadius;
 };
 
+function setTimeRate(index: number): void {
+  timeRateIndex = Math.max(0, Math.min(TIME_RATES.length - 1, Math.round(index)));
+  timeRate = TIME_RATES[timeRateIndex];
+  timeRateInput.value = String(timeRateIndex);
+  timeRateValue.textContent = `${timeRate}×`;
+  timeRateCaption.textContent = TIME_RATE_LABELS[timeRateIndex];
+  accumulator = 0;
+}
+
+timeRateInput.oninput = () => setTimeRate(Number(timeRateInput.value));
+setTimeRate(timeRateIndex);
+
 pauseButton.onclick = () => {
   paused = !paused;
   pauseButton.textContent = paused ? 'Resume' : 'Pause';
@@ -181,30 +255,15 @@ openTools.onclick = () => {
   openTools.classList.add('hidden');
 };
 
-function updateHover(clientX: number, clientY: number): void {
+chronicleToggle.onclick = () => setChronicle(chronicle.classList.contains('hidden'));
+document.querySelector<HTMLButtonElement>('#close-chronicle')!.onclick = () => setChronicle(false);
+
+function updatePointer(clientX: number, clientY: number): void {
   const world = renderer.worldFromScreen(clientX, clientY);
   renderer.brush.x = world.x;
   renderer.brush.y = world.y;
   renderer.brush.radius = brushRadius;
   renderer.brush.visible = world.x >= 0 && world.y >= 0 && world.x < sim.width && world.y < sim.height;
-
-  if (!renderer.brush.visible) {
-    hovercard.classList.add('hidden');
-    return;
-  }
-
-  const tile = sim.tileAt(world.x, world.y);
-  const region = sim.regionAt(world.x, world.y);
-  const local = sim.localCounts(world.x, world.y, 7);
-  hovercard.innerHTML = `
-    <strong>${region.name}</strong>
-    <span>${tile.biome} · moisture ${Math.round(tile.moisture * 100)}% · soil ${Math.round(tile.fertility * 100)}%</span>
-    <small>${local.plant} plants · ${local.grazer} grazers · ${local.predator} predators · ${local.fungi} fungi</small>`;
-  const left = Math.min(innerWidth - 300, Math.max(12, clientX + 18));
-  const top = Math.min(innerHeight - 92, Math.max(12, clientY + 18));
-  hovercard.style.left = `${left}px`;
-  hovercard.style.top = `${top}px`;
-  hovercard.classList.remove('hidden');
 }
 
 function applyTool(clientX: number, clientY: number, announce: boolean): void {
@@ -213,6 +272,7 @@ function applyTool(clientX: number, clientY: number, announce: boolean): void {
   if (world.x < 0 || world.y < 0 || world.x >= sim.width || world.y >= sim.height) return;
   sim.interveneAt(activeTool, world.x, world.y, brushRadius, announce);
   drawMetrics(true);
+  drawChronicle(true);
 }
 
 canvas.addEventListener('wheel', (event) => {
@@ -259,11 +319,10 @@ canvas.addEventListener('pointercancel', () => {
 
 canvas.addEventListener('pointerleave', () => {
   renderer.brush.visible = false;
-  hovercard.classList.add('hidden');
 });
 
 canvas.addEventListener('pointermove', (event) => {
-  updateHover(event.clientX, event.clientY);
+  updatePointer(event.clientX, event.clientY);
 
   if (panning) {
     renderer.camera.x -= (event.clientX - lastX) / renderer.camera.zoom;
@@ -302,6 +361,8 @@ const shortcutTools: Record<string, PlacementTool> = {
 };
 
 addEventListener('keydown', (event) => {
+  if (event.key === '[') { event.preventDefault(); setTimeRate(timeRateIndex - 1); return; }
+  if (event.key === ']') { event.preventDefault(); setTimeRate(timeRateIndex + 1); return; }
   if (event.code === 'Space') {
     event.preventDefault();
     pauseButton.click();
@@ -310,9 +371,11 @@ addEventListener('keydown', (event) => {
   if (event.key === 'Escape') selectTool('observe');
   if (event.key.toLowerCase() === 'r') renderer.recenter();
   if (event.key.toLowerCase() === 'l') labelsButton.click();
+  if (event.key.toLowerCase() === 'c') chronicleToggle.click();
   if (shortcutTools[event.key]) selectTool(shortcutTools[event.key]);
 });
 
 // Ensure a clean first frame and selected state.
 selectTool('observe');
 drawMetrics(true);
+drawChronicle(true);

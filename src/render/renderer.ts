@@ -71,9 +71,13 @@ export class Renderer {
   }
 
   recenter(): void {
-    this.camera.x = WORLD_WIDTH / 2;
-    this.camera.y = WORLD_HEIGHT / 2;
-    this.camera.zoom = 7;
+    this.focus(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 7);
+  }
+
+  focus(x: number, y: number, zoom = this.camera.zoom): void {
+    this.camera.x = Math.max(0, Math.min(WORLD_WIDTH, x));
+    this.camera.y = Math.max(0, Math.min(WORLD_HEIGHT, y));
+    this.camera.zoom = Math.max(3, Math.min(18, zoom));
   }
 
   screen(x: number, y: number): { x: number; y: number } {
@@ -116,6 +120,39 @@ export class Renderer {
       ctx.shadowBlur = 4;
       ctx.fillText(region.name.toUpperCase(), point.x, point.y + 0.5);
       ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+  }
+
+  private drawEventMarkers(state: PlanetState): void {
+    const ctx = this.ctx;
+    const now = performance.now() / 1000;
+    const recent = state.notes.filter((note) => note.regionId && state.day - note.day <= 420).slice(0, 4);
+
+    ctx.save();
+    for (let index = recent.length - 1; index >= 0; index -= 1) {
+      const note = recent[index];
+      const region = state.regions.find((candidate) => candidate.id === note.regionId);
+      if (!region) continue;
+      const point = this.screen(region.x, region.y);
+      if (point.x < -60 || point.y < -60 || point.x > innerWidth + 60 || point.y > innerHeight + 60) continue;
+      const age = Math.max(0, state.day - note.day);
+      const freshness = Math.max(0.18, 1 - age / 420);
+      const pulse = index === 0 ? 1 + Math.sin(now * 2.6) * 0.16 : 1;
+      const radius = (13 + index * 3) * pulse;
+      ctx.globalAlpha = freshness * (index === 0 ? 0.9 : 0.42);
+      ctx.strokeStyle = index === 0 ? '#a8e6c0' : '#d7c889';
+      ctx.fillStyle = index === 0 ? 'rgba(118,220,158,.14)' : 'rgba(215,200,137,.08)';
+      ctx.lineWidth = index === 0 ? 2 : 1;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 2.4, 0, Math.PI * 2);
+      ctx.fillStyle = index === 0 ? '#c8f3d8' : '#eadfae';
+      ctx.globalAlpha = freshness;
+      ctx.fill();
     }
     ctx.restore();
   }
@@ -214,6 +251,7 @@ export class Renderer {
       ctx.stroke();
     }
 
+    this.drawEventMarkers(state);
     this.drawRegionLabels(state);
     this.drawBrush();
 

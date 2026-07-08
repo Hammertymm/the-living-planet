@@ -1,61 +1,16 @@
-# The Living Planet
+# The Living Planet v0.5 — Time Flow
 
-A browser-based digital nature documentary: a living ecosystem designed to be watched, explored, and gently influenced.
+A browser-based living ecosystem designed to be watched, explored and gently influenced.
 
-## v0.3 — Stewardship Tools
+## New in v0.5
 
-This phase restores direct interaction without turning the planet into a management game. You can now introduce life and local conditions exactly where you choose.
-
-### Direct placement tools
-
-Select a tool, then click or drag across the planet:
-
-- Plant growth
-- Grazer herd
-- Predator pack
-- Scavengers
-- Fungal colony
-- Rain front
-- Drought
-- Fertile soil
-- Wildfire
-
-A visible influence circle shows the affected area before you act.
-
-### Camera and inspection
-
-- **Observe** mode: drag to pan
-- With another tool selected: **Shift-drag** or right-drag to pan
-- Mouse wheel zooms toward the cursor
-- Hover over the world to see:
-  - named region
-  - biome
-  - moisture
-  - soil fertility
-  - nearby plants, grazers, predators and fungi
-- Press `R` to recenter
-- Press `L` to toggle region labels
-- Press `Space` to pause
-- Press `Esc` to return to Observe mode
-
-### Keyboard tools
-
-| Key | Tool |
-|---|---|
-| `0` | Observe |
-| `1` | Plant growth |
-| `2` | Grazer herd |
-| `3` | Predator pack |
-| `4` | Scavengers |
-| `5` | Fungal colony |
-| `6` | Rain front |
-| `7` | Drought |
-| `8` | Fertile soil |
-| `9` | Wildfire |
-
-### Ecological behaviour
-
-Every intervention remains subject to the world rather than guaranteeing an outcome. A herd placed in poor habitat may migrate or die. A forest planted in dry soil may fail. Wildfire removes growth but can leave a fertile succession scar.
+- Added a **Time Flow** slider that accelerates and decelerates simulated time.
+- Seven rates: **0.25×, 0.5×, 1×, 1.5×, 2×, 3× and 4×**.
+- Default remains **1×**, preserving the v0.4 pace.
+- `[` slows time and `]` accelerates it.
+- Changing speed clears accumulated timing so the world does not jump.
+- Catch-up work is capped after a hidden/background tab to prevent lock-ups.
+- All v0.4 fundamentals remain unchanged: fixed camera, named regions, direct stewardship tools, Naturalist reports and World Chronicle.
 
 ## Run locally
 
@@ -64,14 +19,23 @@ npm install
 npm run dev
 ```
 
-## Update GitHub
+Open the address shown by Vite, normally `http://localhost:5173`.
+
+## Controls
+
+- Mouse wheel: zoom
+- Drag in Observe mode: pan
+- Shift-drag or right-drag with a tool selected: pan
+- `0–9`: select stewardship tools
+- `[` / `]`: slower / faster time
+- `Space`: pause/resume
+- `R`: recenter
+- `L`: region labels
+- `C`: World Chronicle
+- `Esc`: Observe mode
+
+## Production build
 
 ```powershell
-git add .
-git commit -m "Add direct stewardship tools"
-git push
+npm run build
 ```
-
-## Design rule
-
-> Every minute should produce something worth watching.
