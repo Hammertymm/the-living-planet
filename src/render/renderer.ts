@@ -401,6 +401,46 @@ export class Renderer {
     ctx.restore();
   }
 
+  private drawLineageOverlays(state: PlanetState): void {
+    if (this.view !== 'lineages') return;
+    const ctx = this.ctx;
+    const active = state.lineages
+      .filter((lineage) => lineage.population > 0)
+      .sort((a, b) => b.population - a.population)
+      .slice(0, 12);
+
+    ctx.save();
+    for (const lineage of active) {
+      let x = 0;
+      let y = 0;
+      let count = 0;
+      for (const entity of state.entities) {
+        if (entity.lineageId !== lineage.id) continue;
+        x += entity.x;
+        y += entity.y;
+        count += 1;
+      }
+      if (!count) continue;
+      const point = this.screen(x / count, y / count);
+      if (point.x < -120 || point.y < -40 || point.x > innerWidth + 120 || point.y > innerHeight + 40) continue;
+      const label = `${lineage.name} · ${lineage.population}`;
+      ctx.font = '700 10px Inter, system-ui, sans-serif';
+      const width = ctx.measureText(label).width + 20;
+      ctx.fillStyle = 'rgba(2,8,8,.82)';
+      ctx.strokeStyle = lineage.color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(point.x - width / 2, point.y - 15, width, 23, 11);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = lineage.color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, point.x, point.y - 3.5);
+    }
+    ctx.restore();
+  }
+
   private drawBrush(): void {
     if (!this.brush.visible || this.brush.tool === 'observe') return;
     const point = this.screen(this.brush.x, this.brush.y);
@@ -469,6 +509,9 @@ export class Renderer {
           const heat = tile.heat;
           color = `rgb(${38 + heat * 125},${52 + wet * 90},${64 + wet * 115 - heat * 34})`;
         }
+        if (this.view === 'lineages') {
+          color = tile.biome === 'ocean' ? 'rgb(16,38,51)' : 'rgb(35,45,39)';
+        }
         ctx.fillStyle = color;
         ctx.fillRect(point.x, point.y, size, size);
 
@@ -497,15 +540,19 @@ export class Renderer {
     }
 
     this.drawGroupOverlays(state);
+    this.drawLineageOverlays(state);
 
     const groupColors = new Map(state.groups.map((group) => [group.id, group.color]));
-    ctx.globalAlpha = this.view === 'groups' ? 0.16 : 0.25;
+    const lineageColors = new Map(state.lineages.map((lineage) => [lineage.id, lineage.color]));
+    ctx.globalAlpha = this.view === 'groups' ? 0.16 : this.view === 'lineages' ? 0.72 : 0.25;
     for (const current of state.entities) {
       if (current.species !== 'plant' && current.species !== 'fungi') continue;
       const point = this.screen(current.x, current.y);
       if (point.x < 0 || point.y < 0 || point.x > innerWidth || point.y > innerHeight) continue;
       const plantColor = state.seasonName === 'Spring' ? '#83c878' : state.seasonName === 'Summer' ? '#a6ad65' : state.seasonName === 'Autumn' ? '#a17d4f' : '#748a70';
-      ctx.fillStyle = current.species === 'plant' ? plantColor : '#9d69ce';
+      ctx.fillStyle = this.view === 'lineages'
+        ? lineageColors.get(current.lineageId ?? '') ?? (current.species === 'plant' ? plantColor : '#9d69ce')
+        : current.species === 'plant' ? plantColor : '#9d69ce';
       ctx.beginPath();
       ctx.arc(point.x, point.y, Math.max(1.6, zoom * 0.45), 0, Math.PI * 2);
       ctx.fill();
@@ -516,7 +563,9 @@ export class Renderer {
       if (current.species === 'plant' || current.species === 'fungi') continue;
       const point = this.screen(current.x, current.y);
       if (point.x < -20 || point.y < -20 || point.x > innerWidth + 20 || point.y > innerHeight + 20) continue;
-      const color = current.groupId ? groupColors.get(current.groupId) ?? speciesColors[current.species][current.breed % 6] : speciesColors[current.species][current.breed % 6];
+      const color = this.view === 'lineages'
+        ? lineageColors.get(current.lineageId ?? '') ?? speciesColors[current.species][current.breed % 6]
+        : current.groupId ? groupColors.get(current.groupId) ?? speciesColors[current.species][current.breed % 6] : speciesColors[current.species][current.breed % 6];
       ctx.fillStyle = color;
       ctx.strokeStyle = 'rgba(0,0,0,.45)';
       ctx.lineWidth = 1.5;

@@ -2,11 +2,15 @@ import { RNG } from '../world/random';
 import { generateTiles } from '../world/generator';
 import { generateRegions, nearestRegion } from '../world/regions';
 import { groupCentroid, groupColor, groupName } from '../world/groups';
+import { averageGenome, genomeDistance, lineageColor, lineageName, mutateGenome, randomGenome, traitSummary } from '../world/genetics';
 import type {
   ClimateFront,
   ClimateFrontKind,
   Entity,
+  Genome,
   LandmarkKind,
+  Lineage,
+  LineageSpecies,
   PlacementTool,
   PlanetState,
   Region,
@@ -25,6 +29,33 @@ let nextId = 1;
 let nextGroupId = 1;
 let nextLandmarkId = 1;
 let nextClimateFrontId = 1;
+let nextLineageId = 1;
+
+export interface SimulationCounterState {
+  nextEntityId: number;
+  nextGroupId: number;
+  nextLandmarkId: number;
+  nextClimateFrontId: number;
+  nextLineageId: number;
+}
+
+export function captureSimulationCounters(): SimulationCounterState {
+  return {
+    nextEntityId: nextId,
+    nextGroupId,
+    nextLandmarkId,
+    nextClimateFrontId,
+    nextLineageId,
+  };
+}
+
+export function restoreSimulationCounters(counters: SimulationCounterState): void {
+  nextId = counters.nextEntityId;
+  nextGroupId = counters.nextGroupId;
+  nextLandmarkId = counters.nextLandmarkId;
+  nextClimateFrontId = counters.nextClimateFrontId;
+  nextLineageId = counters.nextLineageId ?? nextLineageId;
+}
 
 function idx(x: number, y: number): number {
   return Math.max(0, Math.min(W - 1, Math.floor(x))) + Math.max(0, Math.min(H - 1, Math.floor(y))) * W;
@@ -50,6 +81,8 @@ function entity(
   groupId?: string,
   breed = rng.int(0, 5),
   generation = 0,
+  genome = randomGenome(species, rng),
+  lineageId?: string,
 ): Entity {
   return {
     id: nextId++,
@@ -64,6 +97,8 @@ function entity(
     cooldown: 0,
     groupId,
     generation,
+    genome,
+    lineageId,
   };
 }
 
@@ -98,6 +133,7 @@ export class Simulation {
       groups: [],
       landmarks: [],
       climateFronts: [],
+      lineages: [],
       season: 0,
       seasonName: 'Spring',
       windX: 0.035,
@@ -105,6 +141,7 @@ export class Simulation {
       seed,
     };
     this.seedLife();
+    this.refreshLineages(false);
     this.seedClimate();
     this.note('A young planet settles into motion. Its first herds and hunting lineages begin to make places into territories.', 'central', undefined, undefined, undefined, 2);
   }
@@ -175,6 +212,135 @@ export class Simulation {
     }
   }
 
+  private createLineage(
+    species: LineageSpecies,
+    x: number,
+    y: number,
+    parentId?: string,
+    sourceGenome?: Genome,
+  ): Lineage {
+    const region = this.regionAt(x, y);
+    const serial = nextLineageId++;
+    const genome = sourceGenome ? mutateGenome(sourceGenome, this.rng, parentId ? 0.035 : 0.08) : randomGenome(species, this.rng);
+    const lineage: Lineage = {
+      id: `lineage-${serial}`,
+      name: lineageName(species, genome, region, serial),
+      species,
+      color: lineageColor(species, genome, serial),
+      foundedDay: this.state.day,
+      parentId,
+      regionId: region.id,
+      genome,
+      population: 0,
+      peakPopulation: 0,
+    };
+    this.state.lineages.push(lineage);
+    return lineage;
+  }
+
+  private activeLineage(id?: string): Lineage | undefined {
+    return id ? this.state.lineages.find((lineage) => lineage.id === id && lineage.extinctDay === undefined) : undefined;
+  }
+
+  private offspring(parent: Entity, x: number, y: number, groupId = parent.groupId): Entity {
+    const genome = mutateGenome(parent.genome, this.rng);
+    let lineage = this.activeLineage(parent.lineageId);
+    const divergence = lineage ? genomeDistance(genome, lineage.genome) : 0;
+    const canSpeciate = parent.species !== 'carrion'
+      && parent.generation >= 3
+      && this.state.day - (lineage?.foundedDay ?? 0) > 180
+      && this.rng.next() < 0.018
+      && divergence > 0.04;
+
+    if (canSpeciate && parent.species !== 'carrion') {
+      lineage = this.createLineage(parent.species, x, y, parent.lineageId, genome);
+      const region = this.regionAt(x, y);
+      this.note(
+        `${lineage.name} has emerged in the ${region.name}. Its ${traitSummary(lineage.genome)} now separates it from its ancestral lineage.`,
+        region.id,
+        groupId,
+        x,
+        y,
+        3,
+      );
+    }
+
+    return entity(
+      parent.species,
+      x,
+      y,
+      this.rng,
+      groupId,
+      parent.breed,
+      parent.generation + 1,
+      genome,
+      lineage?.id ?? parent.lineageId,
+    );
+  }
+
+  private refreshLineages(announce = false): void {
+    const members = new Map<string, Entity[]>();
+    for (const current of this.state.entities) {
+      if (!current.lineageId || current.species === 'carrion') continue;
+      const bucket = members.get(current.lineageId) ?? [];
+      bucket.push(current);
+      members.set(current.lineageId, bucket);
+    }
+
+    for (const lineage of this.state.lineages) {
+      const current = members.get(lineage.id) ?? [];
+      const before = lineage.population;
+      lineage.population = current.length;
+      lineage.peakPopulation = Math.max(lineage.peakPopulation, current.length);
+      if (current.length > 0) {
+        lineage.extinctDay = undefined;
+        if (this.state.day % 120 === 0) lineage.genome = averageGenome(current.map((entity) => entity.genome));
+      } else if (lineage.extinctDay === undefined && this.state.day - lineage.foundedDay > 60) {
+        lineage.extinctDay = this.state.day;
+        if (announce && before > 0) {
+          const region = this.region(lineage.regionId);
+          this.note(`${lineage.name} has disappeared from the living record of the ${region.name}. Its ancestry remains in the planet's archive.`, region.id, undefined, region.x, region.y, 3);
+        }
+      }
+    }
+
+    if (announce && this.state.day > 0 && this.state.day % 360 === 0 && this.state.lineages.length < 80) {
+      const candidates = this.state.lineages.filter((lineage) => lineage.population >= (lineage.species === 'plant' ? 80 : 8));
+      if (candidates.length && this.rng.next() < 0.78) {
+        const parent = this.rng.pick(candidates);
+        const parentMembers = members.get(parent.id) ?? [];
+        if (parentMembers.length >= 4) {
+          const founder = this.rng.pick(parentMembers);
+          const childLineage = this.createLineage(parent.species, founder.x, founder.y, parent.id, parent.genome);
+          const transferCount = Math.max(2, Math.min(Math.floor(parentMembers.length * 0.18), parent.species === 'plant' ? 45 : 9));
+          const stride = Math.max(1, Math.floor(parentMembers.length / transferCount));
+          let transferred = 0;
+          for (let index = this.rng.int(0, Math.max(0, stride - 1)); index < parentMembers.length && transferred < transferCount; index += stride) {
+            const member = parentMembers[index];
+            member.lineageId = childLineage.id;
+            member.genome = mutateGenome(parent.genome, this.rng, 0.13);
+            transferred += 1;
+          }
+          childLineage.population = transferred;
+          childLineage.peakPopulation = transferred;
+          const region = this.regionAt(founder.x, founder.y);
+          this.note(
+            `${childLineage.name} has separated from ${parent.name} in the ${region.name}. Its ${traitSummary(childLineage.genome)} marks the beginning of a new branch.`,
+            region.id,
+            founder.groupId,
+            founder.x,
+            founder.y,
+            3,
+          );
+        }
+      }
+    }
+
+    const active = this.state.lineages.filter((lineage) => lineage.population > 0);
+    const extinct = this.state.lineages.filter((lineage) => lineage.population === 0).slice(-Math.max(0, 120 - active.length));
+    this.state.lineages = [...active, ...extinct];
+  }
+
   private seedClusterAt(
     species: Species,
     count: number,
@@ -184,12 +350,16 @@ export class Simulation {
     groupId?: string,
     breed?: number,
     generation = 0,
+    lineageId?: string,
+    sourceGenome?: Genome,
   ): number[] {
     const ids: number[] = [];
+    let lineage = this.activeLineage(lineageId);
+    if (!lineage && species !== 'carrion') lineage = this.createLineage(species, x, y, undefined, sourceGenome);
     for (let i = 0; i < count && this.state.entities.length < MAX_ENTITIES; i += 1) {
       const point = this.pointNearXY(x, y, radius, true);
       if (!point) continue;
-      const created = entity(species, point.x, point.y, this.rng, groupId, breed, generation);
+      const created = entity(species, point.x, point.y, this.rng, groupId, breed, generation, lineage?.genome ?? randomGenome(species, this.rng), lineage?.id);
       this.state.entities.push(created);
       ids.push(created.id);
     }
@@ -241,7 +411,9 @@ export class Simulation {
       generation: inheritedGeneration,
     };
     const breed = serial % 6;
-    group.memberIds = this.seedClusterAt(species, count, x, y, radius, id, breed, inheritedGeneration);
+    const lineage = this.createLineage(species, x, y);
+    group.color = lineage.color;
+    group.memberIds = this.seedClusterAt(species, count, x, y, radius, id, breed, inheritedGeneration, lineage.id, lineage.genome);
     if (group.memberIds.length === 0) return undefined;
     this.state.groups.push(group);
 
@@ -260,13 +432,13 @@ export class Simulation {
   }
 
   seedLife(): void {
-    for (let i = 0; i < 850; i += 1) {
+    for (let cluster = 0; cluster < 4; cluster += 1) {
       const point = this.landPoint();
-      this.state.entities.push(entity('plant', point.x, point.y, this.rng));
+      this.seedClusterAt('plant', cluster === 0 ? 250 : 200, point.x, point.y, 26);
     }
-    for (let i = 0; i < 85; i += 1) {
+    for (let cluster = 0; cluster < 3; cluster += 1) {
       const point = this.landPoint();
-      this.state.entities.push(entity('fungi', point.x, point.y, this.rng));
+      this.seedClusterAt('fungi', cluster === 0 ? 35 : 25, point.x, point.y, 20);
     }
 
     const initialGroups: Array<[SocialSpecies, number, string, number]> = [
@@ -766,29 +938,30 @@ export class Simulation {
         const scarPenalty = tile.burn > 0.45 ? tile.burn * 0.035 : 0;
         const pathPenalty = tile.trail * 0.018;
         const growthMultiplier = this.state.seasonName === 'Spring' ? 1.22 : this.state.seasonName === 'Summer' ? 0.88 : this.state.seasonName === 'Autumn' ? 0.96 : 0.68;
-        current.energy += (tile.moisture * 0.035 + tile.fertility * 0.025) * growthMultiplier - 0.018 - scarPenalty - pathPenalty - tile.fire * 1.6;
-        if (current.energy > 75 && entities.length < MAX_ENTITIES && this.rng.next() < 0.015) {
+        const resilience = current.genome.resilience;
+        current.energy += (tile.moisture * 0.035 + tile.fertility * 0.025) * growthMultiplier * resilience - 0.018 * current.genome.metabolism - scarPenalty - pathPenalty - tile.fire * (1.8 / resilience);
+        if (current.energy > 75 / current.genome.fertility && entities.length < MAX_ENTITIES && this.rng.next() < 0.015 * current.genome.fertility) {
           const nx = current.x + this.rng.range(-3, 3);
           const ny = current.y + this.rng.range(-3, 3);
           if (isLand(this.state.tiles[idx(nx, ny)])) {
-            entities.push(entity('plant', nx, ny, this.rng, undefined, current.breed, current.generation + 1));
+            entities.push(this.offspring(current, nx, ny, undefined));
             current.energy *= 0.64;
             tile.fertility *= 0.996;
           }
         }
       } else if (current.species === 'fungi') {
-        current.energy -= 0.015 + tile.fire * 1.2;
+        current.energy -= 0.015 * current.genome.metabolism + tile.fire * (1.25 / current.genome.resilience);
         const carrion = entities.find((other) => other.species === 'carrion' && dist(current, other) < 3);
         if (carrion) {
           current.energy += 0.7;
           carrion.energy -= 0.9;
           tile.fertility = Math.min(1, tile.fertility + 0.006);
         }
-        if (current.energy > 60 && entities.length < MAX_ENTITIES && this.rng.next() < 0.006) {
+        if (current.energy > 60 / current.genome.fertility && entities.length < MAX_ENTITIES && this.rng.next() < 0.006 * current.genome.fertility) {
           const nx = current.x + this.rng.range(-2, 2);
           const ny = current.y + this.rng.range(-2, 2);
           if (isLand(this.state.tiles[idx(nx, ny)])) {
-            entities.push(entity('fungi', nx, ny, this.rng, undefined, current.breed, current.generation + 1));
+            entities.push(this.offspring(current, nx, ny, undefined));
             current.energy *= 0.72;
           }
         }
@@ -796,16 +969,17 @@ export class Simulation {
         current.energy -= 0.22;
         tile.fertility = Math.min(1, tile.fertility + 0.0015);
       } else {
-        const speed = current.species === 'predator' ? 0.34 : current.species === 'scavenger' ? 0.28 : 0.25;
+        const baseSpeed = current.species === 'predator' ? 0.34 : current.species === 'scavenger' ? 0.28 : 0.25;
+        const speed = baseSpeed * current.genome.speed;
         if (tile.fire > 0.04) {
           current.vx += this.rng.range(-0.16, 0.16) - this.state.windX * 0.35;
           current.vy += this.rng.range(-0.16, 0.16) - this.state.windY * 0.35;
-          current.energy -= tile.fire * 0.8;
+          current.energy -= tile.fire * (0.9 / current.genome.resilience);
         }
         let target: Entity | undefined;
-        if (current.species === 'grazer') target = entities.find((other) => other.species === 'plant' && dist(current, other) < 6);
-        if (current.species === 'predator') target = entities.find((other) => other.species === 'grazer' && dist(current, other) < 9);
-        if (current.species === 'scavenger') target = entities.find((other) => other.species === 'carrion' && dist(current, other) < 10);
+        if (current.species === 'grazer') target = entities.find((other) => other.species === 'plant' && dist(current, other) < 6 * current.genome.vision);
+        if (current.species === 'predator') target = entities.find((other) => other.species === 'grazer' && dist(current, other) < 9 * current.genome.vision);
+        if (current.species === 'scavenger') target = entities.find((other) => other.species === 'carrion' && dist(current, other) < 10 * current.genome.vision);
 
         const group = current.groupId ? groupById.get(current.groupId) : undefined;
         const center = current.groupId ? centers.get(current.groupId) : undefined;
@@ -813,8 +987,8 @@ export class Simulation {
           const cohesionDistance = current.species === 'grazer' ? 6 : current.species === 'predator' ? 8 : 10;
           const centerDistance = dist(current, center);
           if (centerDistance > cohesionDistance) {
-            current.vx += ((center.x - current.x) / Math.max(1, centerDistance)) * 0.026;
-            current.vy += ((center.y - current.y) / Math.max(1, centerDistance)) * 0.026;
+            current.vx += ((center.x - current.x) / Math.max(1, centerDistance)) * 0.026 * current.genome.cooperation;
+            current.vy += ((center.y - current.y) / Math.max(1, centerDistance)) * 0.026 * current.genome.cooperation;
           }
           if (!target) {
             const targetDistance = Math.max(1, Math.hypot(group.targetX - current.x, group.targetY - current.y));
@@ -830,17 +1004,39 @@ export class Simulation {
           current.vx += (dx / distance) * 0.05;
           current.vy += (dy / distance) * 0.05;
           if (distance < 1.2 && current.cooldown === 0) {
-            if (current.species === 'predator') tile.pressure = Math.min(1, tile.pressure + 0.25);
-            current.energy += target.species === 'grazer' ? 28 : 12;
-            target.energy -= 999;
-            current.cooldown = current.species === 'predator' ? 46 : 18;
+            if (current.species === 'predator' && target.species === 'grazer') {
+              const groupBonus = current.genome.cooperation * 0.08;
+              const successChance = cap(
+                0.48
+                  + (current.genome.speed - target.genome.speed) * 0.22
+                  + (current.genome.vision - target.genome.camouflage) * 0.18
+                  + groupBonus,
+                0.16,
+                0.9,
+              );
+              tile.pressure = Math.min(1, tile.pressure + 0.16 + successChance * 0.12);
+              if (this.rng.next() < successChance) {
+                current.energy += 28;
+                target.energy -= 999;
+                current.cooldown = Math.round(52 / current.genome.metabolism);
+              } else {
+                target.vx += (target.x - current.x) * 0.22;
+                target.vy += (target.y - current.y) * 0.22;
+                current.energy -= 2.2;
+                current.cooldown = 12;
+              }
+            } else {
+              current.energy += target.species === 'plant' ? 12 : 11;
+              target.energy -= 999;
+              current.cooldown = current.species === 'scavenger' ? 18 : 12;
+            }
           }
         } else {
           current.vx += this.rng.range(-0.035, 0.035);
           current.vy += this.rng.range(-0.035, 0.035);
         }
 
-        current.energy -= current.species === 'predator' ? 0.12 : current.species === 'grazer' ? 0.075 : 0.06;
+        current.energy -= (current.species === 'predator' ? 0.12 : current.species === 'grazer' ? 0.075 : 0.06) * current.genome.metabolism;
         const velocity = Math.hypot(current.vx, current.vy);
         if (velocity > speed) {
           current.vx = (current.vx / velocity) * speed;
@@ -860,10 +1056,12 @@ export class Simulation {
         const movementTile = this.state.tiles[idx(current.x, current.y)];
         movementTile.trail = cap(movementTile.trail + (current.species === 'grazer' ? 0.007 : current.species === 'predator' ? 0.0045 : 0.003), 0, 1);
 
-        const reproductionThreshold = current.species === 'predator' ? 180 : current.species === 'scavenger' ? 120 : 95;
+        const reproductionThreshold = (current.species === 'predator' ? 180 : current.species === 'scavenger' ? 120 : 95) / current.genome.fertility;
         if (current.energy > reproductionThreshold && current.cooldown === 0 && entities.length < MAX_ENTITIES) {
           const childBreed = this.rng.next() < 0.09 ? (current.breed + this.rng.pick([-1, 1]) + 6) % 6 : current.breed;
-          entities.push(entity(current.species, current.x + this.rng.range(-1, 1), current.y + this.rng.range(-1, 1), this.rng, current.groupId, childBreed, current.generation + 1));
+          const child = this.offspring(current, current.x + this.rng.range(-1, 1), current.y + this.rng.range(-1, 1), current.groupId);
+          child.breed = childBreed;
+          entities.push(child);
           current.energy *= 0.52;
           current.cooldown = 120;
         }
@@ -872,11 +1070,12 @@ export class Simulation {
 
     const survivors: Entity[] = [];
     for (const current of entities) {
-      if (current.energy > 0 && current.age < 2800) survivors.push(current);
+      if (current.energy > 0 && current.age < 2800 * current.genome.resilience) survivors.push(current);
       else if (current.species !== 'plant' && current.species !== 'carrion') survivors.push(entity('carrion', current.x, current.y, this.rng));
     }
     this.state.entities = survivors.slice(0, MAX_ENTITIES);
     this.refreshGroupMembership(this.state.day % 30 === 0);
+    if (this.state.day % 30 === 0) this.refreshLineages(true);
 
     if (this.state.day % 45 === 0) {
       const currentPositions = this.groupPositions();
@@ -938,6 +1137,42 @@ export class Simulation {
       }
     }
   }
+  private hydrateGenetics(): void {
+    if (!Array.isArray(this.state.lineages)) this.state.lineages = [];
+    const fallback = new Map<string, Lineage>();
+
+    for (const current of this.state.entities) {
+      if (!current.genome) {
+        const seeded = new RNG((this.state.seed * 2654435761 + current.id * 1013904223) >>> 0);
+        current.genome = randomGenome(current.species, seeded, (current.breed - 2.5) * 0.012);
+      }
+      if (current.species === 'carrion') continue;
+      const existing = this.activeLineage(current.lineageId);
+      if (existing) continue;
+      const key = `${current.species}:${current.breed}`;
+      let lineage = fallback.get(key);
+      if (!lineage) {
+        const region = this.regionAt(current.x, current.y);
+        const serial = nextLineageId++;
+        lineage = {
+          id: `lineage-${serial}`,
+          name: lineageName(current.species, current.genome, region, serial),
+          species: current.species,
+          color: lineageColor(current.species, current.genome, serial),
+          foundedDay: 0,
+          regionId: region.id,
+          genome: current.genome,
+          population: 0,
+          peakPopulation: 0,
+        };
+        this.state.lineages.push(lineage);
+        fallback.set(key, lineage);
+      }
+      current.lineageId = lineage.id;
+    }
+    this.refreshLineages(false);
+  }
+
   snapshot(): SimulationSnapshot {
     return {
       schemaVersion: 1,
@@ -948,6 +1183,7 @@ export class Simulation {
         nextGroupId,
         nextLandmarkId,
         nextClimateFrontId,
+        nextLineageId,
       },
     };
   }
@@ -958,6 +1194,7 @@ export class Simulation {
 
     this.state = structuredClone(snapshot.state);
     this.rng.setState(snapshot.rngState ?? this.state.seed);
+    if (!Array.isArray(this.state.lineages)) this.state.lineages = [];
 
     const counters = snapshot.counters;
     nextId = Math.max(
@@ -980,7 +1217,13 @@ export class Simulation {
       ...this.state.climateFronts.map((front) => Number(front.id.match(/\d+$/)?.[0] ?? 0) + 1),
       1,
     );
+    nextLineageId = Math.max(
+      counters?.nextLineageId ?? 1,
+      ...this.state.lineages.map((lineage) => Number(lineage.id.match(/\d+$/)?.[0] ?? 0) + 1),
+      1,
+    );
 
+    this.hydrateGenetics();
     this.refreshGroupMembership(false);
   }
 

@@ -1,6 +1,7 @@
 import './styles.css';
 import { Simulation } from './engine/simulation';
 import { Renderer } from './render/renderer';
+import { installLivingPlanetBridge } from './integration/bridge';
 import { isWorldSave, listWorlds, loadWorld, removeWorld, saveWorld } from './persistence/worldStore';
 import type { WorldSave, WorldSaveMetadata } from './persistence/worldStore';
 import type { PlacementTool, SocialGroup, ViewMode } from './world/types';
@@ -13,7 +14,7 @@ app.innerHTML = `
   <div class="topbar">
     <section class="brand">
       <h1>The Living Planet</h1>
-      <p>v1.0 · Persistent Living Planet</p><span class="save-status" id="save-status">Preparing world…</span>
+      <p>v2.0 · Evolution, Memory & Intelligence</p><span class="save-status" id="save-status">Preparing world…</span>
     </section>
     <section class="metrics" id="metrics"></section>
   </div>
@@ -26,6 +27,7 @@ app.innerHTML = `
     <button data-view="memory">Memory</button>
     <button data-view="groups">Groups</button>
     <button data-view="climate">Climate</button>
+    <button data-view="lineages">Lineages</button>
     <span class="divider"></span>
     <button id="pause">Pause</button>
     <button id="labels" class="active">Labels</button>
@@ -146,7 +148,7 @@ app.innerHTML = `
     <button id="documentary-director">Story follow: off</button>
   </div>
 
-  <div class="help">Wheel zoom · R recenter · L labels · C chronicle · W wildlife · M worlds · Ctrl+S save · D documentary · F story follow · [ ] time flow · Space pause · Esc observe</div>
+  <div class="help">Wheel zoom · R recenter · L labels · C chronicle · W wildlife · M worlds · I intelligence · X science · G genesis · D documentary · [ ] time flow · Space pause</div>
 </div>`;
 
 const canvas = document.querySelector<HTMLCanvasElement>('#world')!;
@@ -215,7 +217,7 @@ const documentaryDirector = document.querySelector<HTMLButtonElement>('#document
 let chronicleSignature = '';
 let wildlifeSignature = '';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '2.0.0';
 const AUTOSAVE_ID = 'autosave';
 
 function cleanWorldName(value: string, seed = sim.state.seed): string {
@@ -488,32 +490,38 @@ function randomSeed(): number {
   return Math.floor(1 + Math.random() * 999_999_998);
 }
 
+async function createWorldDirect(nameValue: string, seedValue: number): Promise<void> {
+  setSaveStatus('Archiving current world…', 'busy');
+  const archiveId = currentManualSaveId ?? `world-${crypto.randomUUID()}`;
+  await saveWorld(buildWorldSave('manual', archiveId));
+
+  const seed = Math.max(1, Math.min(999_999_999, Math.round(seedValue) || randomSeed()));
+  const name = cleanWorldName(nameValue, seed);
+  sim = new Simulation(seed);
+  currentWorldName = name;
+  currentManualSaveId = undefined;
+  lastAutosavedDay = -1;
+  worldNameInput.value = name;
+  newWorldNameInput.value = '';
+  newWorldSeedInput.value = '';
+  renderer.recenter();
+  renderer.view = 'natural';
+  renderer.showLabels = true;
+  labelsButton.classList.add('active');
+  setTimeRate(2);
+  setDirector(false);
+  resetUiAfterWorldChange();
+  setSaveStatus(`New world · Seed ${seed}`, 'idle');
+  await persistCurrentWorld('autosave');
+  setWorlds(false);
+}
+
 async function beginNewWorld(): Promise<void> {
   if (!confirm('Begin a new planet? The current world will be archived in your World Library first.')) return;
   try {
-    setSaveStatus('Archiving current world…', 'busy');
-    const archiveId = currentManualSaveId ?? `world-${crypto.randomUUID()}`;
-    await saveWorld(buildWorldSave('manual', archiveId));
-
     const seed = Math.max(1, Math.min(999_999_999, Number(newWorldSeedInput.value) || randomSeed()));
     const name = cleanWorldName(newWorldNameInput.value, seed);
-    sim = new Simulation(seed);
-    currentWorldName = name;
-    currentManualSaveId = undefined;
-    lastAutosavedDay = -1;
-    worldNameInput.value = name;
-    newWorldNameInput.value = '';
-    newWorldSeedInput.value = '';
-    renderer.recenter();
-    renderer.view = 'natural';
-    renderer.showLabels = true;
-    labelsButton.classList.add('active');
-    setTimeRate(2);
-    setDirector(false);
-    resetUiAfterWorldChange();
-    setSaveStatus(`New world · Seed ${seed}`, 'idle');
-    await persistCurrentWorld('autosave');
-    setWorlds(false);
+    await createWorldDirect(name, seed);
   } catch (error) {
     console.error(error);
     setSaveStatus('Could not begin a new world', 'error');
@@ -609,7 +617,7 @@ function drawMetrics(force = false): void {
     <div class="metric"><span>Plants</span><strong>${counts.plant}</strong></div>
     <div class="metric"><span>Grazers</span><strong>${counts.grazer}</strong></div>
     <div class="metric"><span>Predators</span><strong>${counts.predator}</strong></div>
-    <div class="metric"><span>Fronts</span><strong>${sim.state.climateFronts.length}</strong></div>`;
+    <div class="metric"><span>Lineages</span><strong>${sim.state.lineages.filter((lineage) => lineage.population > 0).length}</strong></div>`;
 
   const rain = sim.state.climateFronts.filter((front) => front.kind === 'rain').length;
   const dry = sim.state.climateFronts.filter((front) => front.kind === 'dry').length;
@@ -741,12 +749,13 @@ function frame(time: number): void {
 }
 requestAnimationFrame(frame);
 
+function setView(view: ViewMode): void {
+  renderer.view = view;
+  document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((candidate) => candidate.classList.toggle('active', candidate.dataset.view === view));
+}
+
 document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((button) => {
-  button.onclick = () => {
-    document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((candidate) => candidate.classList.remove('active'));
-    button.classList.add('active');
-    renderer.view = button.dataset.view as ViewMode;
-  };
+  button.onclick = () => setView(button.dataset.view as ViewMode);
 });
 
 function selectTool(tool: PlacementTool): void {
@@ -950,6 +959,41 @@ addEventListener('keydown', (event) => {
   if (event.key.toLowerCase() === 'd') setDocumentary(!documentaryMode);
   if (event.key.toLowerCase() === 'f') setDirector(!directorEnabled);
   if (shortcutTools[event.key]) selectTool(shortcutTools[event.key]);
+});
+
+installLivingPlanetBridge({
+  version: '2.0.0',
+  snapshot: () => sim.snapshot(),
+  counts: () => sim.counts(),
+  worldInfo: () => ({ name: currentWorldName, seed: sim.state.seed, day: sim.state.day, season: sim.state.seasonName }),
+  regions: () => sim.state.regions,
+  notes: () => sim.state.notes,
+  groups: () => sim.state.groups.map((group) => {
+    const position = groupLocation(group);
+    return {
+      id: group.id,
+      name: group.name,
+      species: group.species,
+      color: group.color,
+      members: group.memberIds.length,
+      generation: group.generation,
+      x: position.x,
+      y: position.y,
+    };
+  }),
+  lineages: () => sim.state.lineages,
+  camera: () => renderer.camera,
+  focus: (x, y, zoom) => renderer.setCinematicTarget(x, y, zoom ?? renderer.camera.zoom),
+  recenter: () => renderer.recenter(),
+  documentary: () => documentaryMode,
+  setDocumentary,
+  paused: () => paused,
+  setPaused: (value) => { if (paused !== value) pauseButton.click(); },
+  timeRateIndex: () => timeRateIndex,
+  setTimeRateIndex: setTimeRate,
+  intervene: (tool, x, y, radius = 8, announce = true) => sim.interveneAt(tool, x, y, radius, announce),
+  setView,
+  createWorld: createWorldDirect,
 });
 
 selectTool('observe');

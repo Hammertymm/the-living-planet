@@ -113,6 +113,18 @@ export class EvidenceStore extends EventTarget {
     this.lastMetrics = metrics;
   }
 
+  captureExternal(
+    kind: EvidenceKind,
+    summary: string,
+    values?: EvidenceRecord['values'],
+    day?: number,
+    region?: string,
+  ): void {
+    const cleaned = cleanText(summary);
+    if (!cleaned) return;
+    this.add(kind, 'experiment', cleaned, values, day, region);
+  }
+
   captureNaturalist(text: string): void {
     const cleaned = cleanText(text);
     if (!cleaned || cleaned === this.lastNaturalistText) return;

@@ -86,6 +86,26 @@ export function analyzeLocally(question: string, records: EvidenceRecord[]): Nat
   const previous = allSnapshots.length > 1 ? allSnapshots[Math.max(0, allSnapshots.length - 4)] : undefined;
   const population = populationQuestion(question);
 
+  if (/experiment|counterfactual|alternative future|what if|matched future/.test(lower)) {
+    const experiments = evidence.filter((record) => record.kind === 'counterfactual_result').slice(-4);
+    if (!experiments.length) {
+      return result(
+        'No counterfactual evidence yet',
+        'The Science Lab has not recorded a matched-future experiment. Run a baseline-versus-intervention comparison, then ask again.',
+        evidence.slice(-2),
+        ['Live-world observations cannot isolate causation on their own.'],
+        'low',
+      );
+    }
+    return result(
+      'Counterfactual findings',
+      experiments.map((record) => record.summary).join(' '),
+      experiments,
+      ['Counterfactual results describe simulated alternative futures, not guaranteed outcomes.'],
+      experiments.length >= 2 ? 'high' : 'medium',
+    );
+  }
+
   if (/what changed|recent|happened|latest/.test(lower)) {
     const changes = evidence.filter((record) => ['population_change', 'extinction', 'recovery', 'world_event', 'climate_signal'].includes(record.kind)).slice(-5);
     const lines = changes.length ? changes.map((record) => record.summary) : [latestEvent(evidence)?.summary ?? current?.record.summary ?? 'No significant change has been detected.'];
@@ -152,7 +172,7 @@ export function analyzeLocally(question: string, records: EvidenceRecord[]): Nat
 }
 
 export function observationFromEvidence(record: EvidenceRecord, records: EvidenceRecord[]): NaturalistAnalysis | undefined {
-  if (!['population_change', 'extinction', 'recovery', 'world_event', 'climate_signal'].includes(record.kind)) return undefined;
+  if (!['population_change', 'extinction', 'recovery', 'world_event', 'climate_signal', 'counterfactual_result'].includes(record.kind)) return undefined;
   const related = records.filter((candidate) => candidate.id === record.id || (record.region && candidate.region === record.region)).slice(-5);
 
   if (record.kind === 'extinction') {
@@ -160,6 +180,9 @@ export function observationFromEvidence(record: EvidenceRecord, records: Evidenc
   }
   if (record.kind === 'recovery') {
     return result('Ecological recovery detected', `${record.summary} This is a measured return, though persistence is not yet guaranteed.`, related, ['A short-lived recovery may still reverse.'], 'high');
+  }
+  if (record.kind === 'counterfactual_result') {
+    return result('A matched future has completed', record.summary, related, ['This comparison is evidence from simulated branches; it does not alter the live planet.'], 'high');
   }
   return result(record.region ? `Change in ${record.region}` : 'Meaningful change detected', record.summary, related, [], related.length >= 2 ? 'high' : 'medium');
 }

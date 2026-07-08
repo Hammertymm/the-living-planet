@@ -119,6 +119,7 @@ function startIntelligence(): void {
           <button data-question="Why are grazers changing?">Grazers?</button>
           <button data-question="What is happening with predators?">Predators?</button>
           <button data-question="What is the role of fungi right now?">Fungi?</button>
+          <button data-question="What did the latest counterfactual experiment show?">Experiment?</button>
         </div>
         <form id="ask-form" class="ask-form">
           <textarea id="ask-input" maxlength="280" rows="3" placeholder="Ask a question about this planet…"></textarea>
@@ -152,7 +153,10 @@ function startIntelligence(): void {
     open = value;
     panel.classList.toggle('hidden', !value);
     toggle.classList.toggle('active', value);
-    if (value) renderAll();
+    if (value) {
+      window.dispatchEvent(new CustomEvent('living-planet-panel-open', { detail: { panel: 'intelligence' } }));
+      renderAll();
+    }
   }
 
   function setTab(tab: typeof activeTab): void {
@@ -298,6 +302,34 @@ function startIntelligence(): void {
     if (!button) return;
     setTab('evidence');
     requestAnimationFrame(() => panel.querySelector(`#evidence-${button.dataset.evidenceId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+  });
+
+  window.addEventListener('living-planet-panel-open', (event) => {
+    const detail = (event as CustomEvent<{ panel?: string }>).detail;
+    if (detail?.panel !== 'intelligence') setOpen(false);
+  });
+
+  window.addEventListener('living-planet-science-evidence', (event) => {
+    const result = (event as CustomEvent<{
+      id: string; startDay: number; endDay: number; regionName: string; interpretation: string;
+      config: { scenario: string; horizon: number; replicates: number };
+      deltas: { plant: number; grazer: number; predator: number; scavenger: number; fungi: number };
+      baseline: { meanStability: number }; intervention: { meanStability: number };
+    }>).detail;
+    if (!result?.interpretation) return;
+    store.captureExternal('counterfactual_result', `${result.id}: ${result.interpretation}`, {
+      experimentId: result.id,
+      scenario: result.config.scenario,
+      horizon: result.config.horizon,
+      replicates: result.config.replicates,
+      plantDelta: result.deltas.plant,
+      grazerDelta: result.deltas.grazer,
+      predatorDelta: result.deltas.predator,
+      scavengerDelta: result.deltas.scavenger,
+      fungiDelta: result.deltas.fungi,
+      baselineStability: result.baseline.meanStability,
+      interventionStability: result.intervention.meanStability,
+    }, result.endDay, result.regionName);
   });
 
   document.addEventListener('keydown', (event) => {

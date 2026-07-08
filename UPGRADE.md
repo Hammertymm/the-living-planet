@@ -1,16 +1,17 @@
-# The Living Planet v1.3 — Documentary Director
+# Upgrade to v2.0
 
-This is an upgrade overlay for v1.2.1.
-
-Copy everything inside this folder over:
+1. Stop the development server with `Ctrl+C`.
+2. Extract the contents of this package over:
 
 ```text
 C:\Projects\the-living-planet
 ```
 
-Allow Windows to replace matching files, then run:
+3. Allow Windows to replace matching files.
+4. Run:
 
 ```powershell
+cd C:\Projects\the-living-planet
 npm install
 npm run check
 npm run check:api
@@ -18,13 +19,14 @@ npm run build
 npm run dev
 ```
 
-## New controls
+5. Open the app and press `G` to open Genesis Observatory.
 
-- **Director** in the top control bar opens the Documentary Director.
-- `K` opens or closes the Director panel.
-- **Start directing** enables opt-in camera direction.
-- **Focus best moment** manually revisits the strongest recorded event.
-- **Play 3-minute reel** presents the seven strongest moments from the evidence ledger.
-- Spoken narration is optional and uses the browser's local speech engine.
+After testing:
 
-Manual panning or zooming immediately stops automatic direction unless a 3-minute reel is actively playing.
+```powershell
+git add .
+git commit -m "Release The Living Planet v2.0 Genesis"
+git push
+```
+
+Existing browser saves remain available. The first load may take slightly longer while older entities are assigned deterministic genomes and founding lineages.

@@ -1,26 +1,32 @@
-# Grounded Intelligence Architecture
+# Intelligence Architecture
 
-The AI Preview deliberately keeps intelligence outside the simulation loop.
+The Living Planet uses a layered intelligence model.
 
-## Flow
+## Layer 1 — Deterministic ecology
 
-1. The deterministic ecosystem updates the world.
-2. The existing interface renders verified metrics and Naturalist events.
-3. `EvidenceStore` captures those verified observations into a compact ledger.
-4. The local Naturalist answers immediately from deterministic rules.
-5. User-requested cloud analysis may send the same bounded evidence ledger to `/api/naturalist`.
-6. Every returned claim includes evidence IDs that can be opened in the interface.
+The simulation owns terrain, climate, organisms, energy, reproduction, genetics, groups, lineages and history. This is the source of truth.
+
+## Layer 2 — Grounded observation
+
+Naturalist 2.0 collects verified metrics and recorded world events into an evidence ledger. Every analysis links to evidence IDs. Local analysis works offline.
+
+## Layer 3 — Counterfactual science
+
+The Science Lab clones deterministic world snapshots and compares matched alternative futures. Experiments never change the live planet.
+
+## Layer 4 — Agentic stewardship
+
+The Steward Planner runs several counterfactual experiments, scores them against a chosen objective and proposes a ranked plan. It cannot apply a recommendation without explicit user approval.
+
+## Layer 5 — Optional cloud interpretation
+
+A server-side Naturalist endpoint may convert bounded evidence into richer prose. API credentials remain server-side. Failure falls back to local analysis.
 
 ## Non-negotiable constraints
 
-- AI never advances time or changes ecology.
-- AI is never called on every simulation tick.
-- No API key is shipped to the browser.
-- Cloud analysis is opt-in and user-triggered.
-- Failure always falls back to the local Naturalist.
-- AI cannot cite evidence IDs that were not supplied.
-- Causal language remains cautious unless causation is explicitly recorded.
-
-## Current limitation
-
-v1.2 grounds itself through the current UI metrics and Naturalist notes. The next engine phase will publish a first-class typed event stream directly from the simulation, replacing DOM observation while keeping the same evidence contract.
+- No AI call occurs on every simulation tick.
+- No model may fabricate an ecological event.
+- No browser code contains a secret API key.
+- No agent silently alters the live world.
+- Causal claims remain cautious unless supported by controlled experiments.
+- The app remains usable offline without cloud intelligence.

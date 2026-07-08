@@ -1,7 +1,7 @@
 export type Biome = 'ocean' | 'shore' | 'grass' | 'forest' | 'rock' | 'snow';
 export type Species = 'plant' | 'grazer' | 'predator' | 'scavenger' | 'fungi' | 'carrion';
 export type SocialSpecies = 'grazer' | 'predator' | 'scavenger';
-export type ViewMode = 'natural' | 'moisture' | 'soil' | 'pressure' | 'memory' | 'groups' | 'climate';
+export type ViewMode = 'natural' | 'moisture' | 'soil' | 'pressure' | 'memory' | 'groups' | 'climate' | 'lineages';
 export type PlacementTool =
   | 'observe'
   | 'plants'
@@ -15,6 +15,32 @@ export type PlacementTool =
   | 'wildfire';
 export type ClimateFrontKind = 'rain' | 'dry' | 'storm';
 export type SeasonName = 'Spring' | 'Summer' | 'Autumn' | 'Winter';
+
+export type LineageSpecies = Exclude<Species, 'carrion'>;
+
+export interface Genome {
+  speed: number;
+  metabolism: number;
+  fertility: number;
+  vision: number;
+  resilience: number;
+  cooperation: number;
+  camouflage: number;
+}
+
+export interface Lineage {
+  id: string;
+  name: string;
+  species: LineageSpecies;
+  color: string;
+  foundedDay: number;
+  parentId?: string;
+  regionId: string;
+  genome: Genome;
+  population: number;
+  peakPopulation: number;
+  extinctDay?: number;
+}
 
 export interface Tile {
   elevation: number;
@@ -41,6 +67,8 @@ export interface Entity {
   cooldown: number;
   groupId?: string;
   generation: number;
+  genome: Genome;
+  lineageId?: string;
 }
 
 export interface Region {
@@ -120,6 +148,7 @@ export interface PlanetState {
   groups: SocialGroup[];
   landmarks: Landmark[];
   climateFronts: ClimateFront[];
+  lineages: Lineage[];
   season: number;
   seasonName: SeasonName;
   windX: number;
@@ -136,5 +165,6 @@ export interface SimulationSnapshot {
     nextGroupId: number;
     nextLandmarkId: number;
     nextClimateFrontId: number;
+    nextLineageId: number;
   };
 }

@@ -1,38 +1,66 @@
-## v1.2.1 — ES2020 compatibility hotfix
-
-- Replaced `String.replaceAll()` with global regular-expression replacement.
-- Replaced `Array.at(-1)` with indexed access.
-- Restored a clean `npm run check` under the existing ES2020 target.
-
 # Changelog
 
-## v1.2.0 — Grounded Intelligence Preview
+## v2.0.0 — Genesis
 
-### Added
+This release consolidates several development phases into one full replacement package.
 
-- Evidence ledger with stable evidence IDs
-- Local offline Naturalist analysis
-- User questions grounded in recent world evidence
-- Automatic insights for significant ecological changes
-- Confidence and caveat display
-- Evidence navigation from every generated observation
-- Optional secure cloud Naturalist endpoint
-- Strict structured-output schema
-- Cloud-to-local failure fallback
-- AI settings and keyboard shortcut (`I`)
+### v1.5 phase — Genetic lineages
 
-### Preserved
+- Added inherited genomes to plants, fungi and animals.
+- Connected traits to speed, energy use, fertility, perception, resilience, cooperation and camouflage.
+- Added imperfect predator hunting influenced by predator and prey traits.
+- Added inherited mutation and controlled lineage divergence.
+- Added deterministic taxonomy names and lineage colours.
+- Added migration for v1.x saves that do not contain genomes.
+- Added a Lineages map and Evolution Observatory.
 
-- Existing simulation engine and ecological balance
-- Manual camera fundamentals
-- Direct stewardship tools
-- Named regions, herds, packs and world memory
-- Climate, seasons, wildfire and Documentary mode
-- IndexedDB world persistence
+### v1.6 phase — Planetary memory
 
-### Deliberately deferred
+- Added a per-world long-term memory archive.
+- Records major events beyond the short Chronicle limit.
+- Records lineage births and extinctions.
+- Groups history into named 360-day eras.
+- Added region-focus navigation from archived moments.
 
-- Direct engine event bus
-- Counterfactual world forks
-- AI documentary shot planning
-- Genetics and AI taxonomy
+### v1.7 phase — World Composer
+
+- Added natural-language ecological scenario composition.
+- Added deterministic prompt hashing and shareable seeds.
+- Added scenario previews before creation.
+- Added presets for balanced, dry-migration, fungal-rainforest and ash-recovery worlds.
+- Current worlds are archived before a composed world is created.
+
+### v1.8 phase — Steward Planner
+
+- Added an approval-gated simulation agent.
+- Runs multiple counterfactual interventions against matched baselines.
+- Supports biodiversity, grazer recovery, predator balance, drought resilience and soil recovery objectives.
+- Ranks alternatives using population survival, stability and trophic outcomes.
+- Does not alter the live world until the user approves a supported intervention.
+
+### v2.0 integration
+
+- Integrated Genesis Observatory alongside Intelligence and Science Lab.
+- Added bridge APIs for lineages, world creation, view switching and approved intervention.
+- Preserved all v1.x ecosystem, camera, persistence and documentary fundamentals.
+- Updated documentation and production metadata.
+- Verified TypeScript, API syntax, production build and long-run simulation stability.
+
+## v1.4.0 — Science Preview
+
+- Added counterfactual ecology experiments.
+- Added matched baseline and intervention futures.
+- Added documentary shot planning and Story Reel.
+
+## v1.3.0 — Documentary Director
+
+- Added event scoring, documentary direction and opt-in narration.
+
+## v1.2.1 — Grounded Intelligence hotfix
+
+- Added evidence-ledger Naturalist intelligence.
+- Restored ES2020 compatibility.
+
+## v1.0.0 — Persistent Living Planet
+
+- Added IndexedDB world saves, autosave, world library, import/export and screenshots.
