@@ -2,22 +2,26 @@
 
 A browser-based digital nature documentary: a living ecosystem designed to be watched, explored, and gently influenced.
 
-This is the clean production branch, separated from Emergence Lab.
+## v0.2 — Named World
 
-## v0.1 — Foundation
+This phase makes the planet easier to understand spatially.
 
-Included:
+### Changes
 
-- Vite + TypeScript project structure
-- Deterministic seeded world generator
-- Canvas renderer
-- Camera drift / observe mode
-- Terrain: ocean, shore, grassland, forest, rock, snow
-- Entities: plants, grazers, predators, scavengers, fungi, carrion
-- Basic ecology loop
-- Naturalist event notes
-- Intervention controls
-- Minimal HUD that stays out of the world view
+- Camera no longer drifts or follows organisms automatically
+- Mouse wheel is captured by the canvas and no longer scrolls the page
+- Drag to pan manually
+- Double-click, press `R`, or use **Recenter** to reset the camera
+- Six named map regions are generated onto suitable terrain:
+  - Northern Highlands
+  - Western Basin
+  - Central Plains
+  - Eastern Wetlands
+  - Southern Ridge
+  - Coastal Flats
+- Naturalist reports now identify the region where an event occurred
+- Interventions are localised to meaningful regions instead of affecting the entire planet
+- Region labels can be toggled with **Labels** or `L`
 
 ## Run locally
 
@@ -26,13 +30,11 @@ npm install
 npm run dev
 ```
 
-Open the local URL shown in the terminal.
-
-## GitHub setup
+## Update GitHub
 
 ```powershell
 git add .
-git commit -m "Initial Living Planet foundation"
+git commit -m "Add fixed camera and named regions"
 git push
 ```
 
