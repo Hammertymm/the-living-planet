@@ -1,7 +1,7 @@
 import './styles.css';
 import { Simulation } from './engine/simulation';
 import { Renderer } from './render/renderer';
-import type { PlacementTool, ViewMode } from './world/types';
+import type { PlacementTool, SocialGroup, ViewMode } from './world/types';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -11,7 +11,7 @@ app.innerHTML = `
   <div class="topbar">
     <section class="brand">
       <h1>The Living Planet</h1>
-      <p>v0.5 · Time Flow</p>
+      <p>v0.7 · Herds, Packs & Memory</p>
     </section>
     <section class="metrics" id="metrics"></section>
   </div>
@@ -21,11 +21,14 @@ app.innerHTML = `
     <button data-view="moisture">Moisture</button>
     <button data-view="soil">Soil</button>
     <button data-view="pressure">Pressure</button>
+    <button data-view="memory">Memory</button>
+    <button data-view="groups">Groups</button>
     <span class="divider"></span>
     <button id="pause">Pause</button>
     <button id="labels" class="active">Labels</button>
     <button id="recenter">Recenter</button>
     <button id="chronicle-toggle">Chronicle</button>
+    <button id="wildlife-toggle">Wildlife</button>
   </div>
 
   <section class="naturalist">
@@ -82,11 +85,23 @@ app.innerHTML = `
     <div class="chronicle-list" id="chronicle-list"></div>
   </section>
 
-  <div class="help">Wheel zoom · R recenter · L labels · C chronicle · [ ] time flow · Space pause · Esc observe</div>
+  <section class="wildlife hidden" id="wildlife">
+    <div class="panel-heading">
+      <div>
+        <h2>Living Registry</h2>
+        <p>Named herds, packs and scavenger colonies currently shaping the planet.</p>
+      </div>
+      <button id="close-wildlife" class="icon-button" title="Close wildlife registry">×</button>
+    </div>
+    <div class="registry-summary" id="registry-summary"></div>
+    <div class="wildlife-list" id="wildlife-list"></div>
+  </section>
+
+  <div class="help">Wheel zoom · R recenter · L labels · C chronicle · W wildlife · [ ] time flow · Space pause · Esc observe</div>
 </div>`;
 
 const canvas = document.querySelector<HTMLCanvasElement>('#world')!;
-let sim = new Simulation(4319);
+const sim = new Simulation(4319);
 const renderer = new Renderer(canvas);
 let paused = false;
 let last = performance.now();
@@ -122,7 +137,16 @@ const timeRateCaption = document.querySelector<HTMLElement>('#time-rate-caption'
 const chronicle = document.querySelector<HTMLElement>('#chronicle')!;
 const chronicleList = document.querySelector<HTMLElement>('#chronicle-list')!;
 const chronicleToggle = document.querySelector<HTMLButtonElement>('#chronicle-toggle')!;
+const wildlife = document.querySelector<HTMLElement>('#wildlife')!;
+const wildlifeList = document.querySelector<HTMLElement>('#wildlife-list')!;
+const wildlifeToggle = document.querySelector<HTMLButtonElement>('#wildlife-toggle')!;
+const registrySummary = document.querySelector<HTMLElement>('#registry-summary')!;
 let chronicleSignature = '';
+let wildlifeSignature = '';
+
+function groupLocation(group: SocialGroup): { x: number; y: number } {
+  return sim.groupLocation(group);
+}
 
 function drawMetrics(force = false): void {
   if (!force && lastUiDay === sim.state.day) return;
@@ -133,41 +157,113 @@ function drawMetrics(force = false): void {
     <div class="metric"><span>Plants</span><strong>${counts.plant}</strong></div>
     <div class="metric"><span>Grazers</span><strong>${counts.grazer}</strong></div>
     <div class="metric"><span>Predators</span><strong>${counts.predator}</strong></div>
-    <div class="metric"><span>Scavengers</span><strong>${counts.scavenger}</strong></div>
-    <div class="metric"><span>Fungi</span><strong>${counts.fungi}</strong></div>`;
+    <div class="metric"><span>Groups</span><strong>${sim.state.groups.length}</strong></div>
+    <div class="metric"><span>Memory</span><strong>${sim.state.landmarks.length}</strong></div>`;
 
   const note = sim.state.notes[0];
   const region = note?.regionId ? sim.state.regions.find((candidate) => candidate.id === note.regionId) : undefined;
+  const group = note?.groupId ? sim.state.groups.find((candidate) => candidate.id === note.groupId) : undefined;
   noteElement.innerHTML = note
-    ? `${note.text}<small>Day ${note.day}${region ? ` · ${region.name}` : ''}</small>`
+    ? `${note.text}<small>Day ${note.day}${region ? ` · ${region.name}` : ''}${group ? ` · ${group.name}` : ''}</small>`
     : 'The planet is quiet.';
 }
 
+function focusNote(index: number): void {
+  const entry = sim.state.notes[index];
+  if (!entry) return;
+  if (entry.focusX !== undefined && entry.focusY !== undefined) {
+    renderer.focus(entry.focusX, entry.focusY, 9);
+    return;
+  }
+  const group = entry.groupId ? sim.state.groups.find((candidate) => candidate.id === entry.groupId) : undefined;
+  if (group) {
+    const point = groupLocation(group);
+    renderer.focus(point.x, point.y, 9);
+    return;
+  }
+  const region = entry.regionId ? sim.state.regions.find((candidate) => candidate.id === entry.regionId) : undefined;
+  if (region) renderer.focus(region.x, region.y, 9);
+}
+
 function drawChronicle(force = false): void {
-  const signature = sim.state.notes.map((entry) => `${entry.day}:${entry.regionId ?? ''}:${entry.text}`).join('|');
+  const signature = sim.state.notes.map((entry) => `${entry.day}:${entry.regionId ?? ''}:${entry.groupId ?? ''}:${entry.text}`).join('|');
   if (!force && signature === chronicleSignature) return;
   chronicleSignature = signature;
 
   chronicleList.innerHTML = sim.state.notes.map((entry, index) => {
     const region = entry.regionId ? sim.state.regions.find((candidate) => candidate.id === entry.regionId) : undefined;
-    return `<button class="chronicle-entry${index === 0 ? ' latest' : ''}" data-region="${entry.regionId ?? ''}">
-      <span class="chronicle-meta"><strong>Day ${entry.day}</strong>${region ? `<em>${region.name}</em>` : ''}</span>
+    const group = entry.groupId ? sim.state.groups.find((candidate) => candidate.id === entry.groupId) : undefined;
+    return `<button class="chronicle-entry${index === 0 ? ' latest' : ''}" data-index="${index}">
+      <span class="chronicle-meta"><strong>Day ${entry.day}</strong><em>${group?.name ?? region?.name ?? 'Planetwide'}</em></span>
       <span>${entry.text}</span>
     </button>`;
   }).join('');
 
-  chronicleList.querySelectorAll<HTMLButtonElement>('[data-region]').forEach((button) => {
-    button.onclick = () => {
-      const region = sim.state.regions.find((candidate) => candidate.id === button.dataset.region);
-      if (region) renderer.focus(region.x, region.y, 9);
-    };
+  chronicleList.querySelectorAll<HTMLButtonElement>('[data-index]').forEach((button) => {
+    button.onclick = () => focusNote(Number(button.dataset.index));
   });
 }
 
 function setChronicle(open: boolean): void {
   chronicle.classList.toggle('hidden', !open);
   chronicleToggle.classList.toggle('active', open);
-  if (open) drawChronicle(true);
+  if (open) {
+    setWildlife(false);
+    drawChronicle(true);
+  }
+}
+
+function groupStatus(group: SocialGroup): string {
+  const region = sim.state.regions.find((candidate) => candidate.id === group.targetRegionId);
+  const age = sim.state.day - group.foundedDay;
+  if (group.memberIds.length <= 4) return 'fragile';
+  if (group.memberIds.length >= (group.species === 'grazer' ? 24 : 10)) return 'flourishing';
+  if (age < 120) return 'newly formed';
+  return region ? `moving toward ${region.name}` : 'established';
+}
+
+function drawWildlife(force = false): void {
+  const signature = sim.state.groups.map((group) => `${group.id}:${group.memberIds.length}:${group.targetRegionId}:${group.generation}`).join('|');
+  if (!force && signature === wildlifeSignature) return;
+  wildlifeSignature = signature;
+
+  const grazers = sim.state.groups.filter((group) => group.species === 'grazer').length;
+  const predators = sim.state.groups.filter((group) => group.species === 'predator').length;
+  const scavengers = sim.state.groups.filter((group) => group.species === 'scavenger').length;
+  registrySummary.innerHTML = `<span><strong>${grazers}</strong> herds</span><span><strong>${predators}</strong> packs</span><span><strong>${scavengers}</strong> colonies</span>`;
+
+  wildlifeList.innerHTML = [...sim.state.groups]
+    .sort((a, b) => a.species.localeCompare(b.species) || b.memberIds.length - a.memberIds.length)
+    .map((group) => {
+      const region = sim.state.regions.find((candidate) => candidate.id === group.targetRegionId);
+      const symbol = group.species === 'grazer' ? '●' : group.species === 'predator' ? '▲' : '◆';
+      return `<button class="wildlife-entry" data-group="${group.id}">
+        <span class="wildlife-symbol" style="--group-color:${group.color}">${symbol}</span>
+        <span class="wildlife-copy"><strong>${group.name}</strong><small>${group.memberIds.length} members · ${groupStatus(group)}${region ? ` · ${region.name}` : ''}</small></span>
+        <span class="wildlife-generation">G${group.generation}</span>
+      </button>`;
+    }).join('');
+
+  wildlifeList.querySelectorAll<HTMLButtonElement>('[data-group]').forEach((button) => {
+    button.onclick = () => {
+      const group = sim.state.groups.find((candidate) => candidate.id === button.dataset.group);
+      if (!group) return;
+      const point = groupLocation(group);
+      renderer.focus(point.x, point.y, 10);
+      document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((candidate) => candidate.classList.toggle('active', candidate.dataset.view === 'groups'));
+      renderer.view = 'groups';
+    };
+  });
+}
+
+function setWildlife(open: boolean): void {
+  wildlife.classList.toggle('hidden', !open);
+  wildlifeToggle.classList.toggle('active', open);
+  if (open) {
+    chronicle.classList.add('hidden');
+    chronicleToggle.classList.remove('active');
+    drawWildlife(true);
+  }
 }
 
 function frame(time: number): void {
@@ -182,7 +278,6 @@ function frame(time: number): void {
       accumulator -= stepInterval;
       stepsThisFrame += 1;
     }
-    // Avoid a huge catch-up burst after the tab has been hidden.
     if (stepsThisFrame === 12) accumulator = Math.min(accumulator, stepInterval);
   } else {
     accumulator = 0;
@@ -190,6 +285,7 @@ function frame(time: number): void {
   renderer.render(sim.state);
   drawMetrics();
   drawChronicle();
+  drawWildlife();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -257,6 +353,8 @@ openTools.onclick = () => {
 
 chronicleToggle.onclick = () => setChronicle(chronicle.classList.contains('hidden'));
 document.querySelector<HTMLButtonElement>('#close-chronicle')!.onclick = () => setChronicle(false);
+wildlifeToggle.onclick = () => setWildlife(wildlife.classList.contains('hidden'));
+document.querySelector<HTMLButtonElement>('#close-wildlife')!.onclick = () => setWildlife(false);
 
 function updatePointer(clientX: number, clientY: number): void {
   const world = renderer.worldFromScreen(clientX, clientY);
@@ -273,6 +371,7 @@ function applyTool(clientX: number, clientY: number, announce: boolean): void {
   sim.interveneAt(activeTool, world.x, world.y, brushRadius, announce);
   drawMetrics(true);
   drawChronicle(true);
+  drawWildlife(true);
 }
 
 canvas.addEventListener('wheel', (event) => {
@@ -372,10 +471,11 @@ addEventListener('keydown', (event) => {
   if (event.key.toLowerCase() === 'r') renderer.recenter();
   if (event.key.toLowerCase() === 'l') labelsButton.click();
   if (event.key.toLowerCase() === 'c') chronicleToggle.click();
+  if (event.key.toLowerCase() === 'w') wildlifeToggle.click();
   if (shortcutTools[event.key]) selectTool(shortcutTools[event.key]);
 });
 
-// Ensure a clean first frame and selected state.
 selectTool('observe');
 drawMetrics(true);
 drawChronicle(true);
+drawWildlife(true);

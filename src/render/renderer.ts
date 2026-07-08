@@ -1,4 +1,4 @@
-import type { PlacementTool, PlanetState, ViewMode } from '../world/types';
+import type { Landmark, PlacementTool, PlanetState, SocialGroup, ViewMode } from '../world/types';
 
 const WORLD_WIDTH = 180;
 const WORLD_HEIGHT = 110;
@@ -47,6 +47,10 @@ const toolLabels: Record<PlacementTool, string> = {
   wildfire: 'Wildfire',
 };
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private dpr = 1;
@@ -75,9 +79,9 @@ export class Renderer {
   }
 
   focus(x: number, y: number, zoom = this.camera.zoom): void {
-    this.camera.x = Math.max(0, Math.min(WORLD_WIDTH, x));
-    this.camera.y = Math.max(0, Math.min(WORLD_HEIGHT, y));
-    this.camera.zoom = Math.max(3, Math.min(18, zoom));
+    this.camera.x = clamp(x, 0, WORLD_WIDTH);
+    this.camera.y = clamp(y, 0, WORLD_HEIGHT);
+    this.camera.zoom = clamp(zoom, 3, 18);
   }
 
   screen(x: number, y: number): { x: number; y: number } {
@@ -92,6 +96,20 @@ export class Renderer {
       x: (x - innerWidth / 2) / this.camera.zoom + this.camera.x,
       y: (y - innerHeight / 2) / this.camera.zoom + this.camera.y,
     };
+  }
+
+  private groupCenter(group: SocialGroup, state: PlanetState): { x: number; y: number } {
+    const members = new Set(group.memberIds);
+    let x = 0;
+    let y = 0;
+    let count = 0;
+    for (const entity of state.entities) {
+      if (!members.has(entity.id)) continue;
+      x += entity.x;
+      y += entity.y;
+      count += 1;
+    }
+    return count > 0 ? { x: x / count, y: y / count } : { x: group.homeX, y: group.homeY };
   }
 
   private drawRegionLabels(state: PlanetState): void {
@@ -133,8 +151,10 @@ export class Renderer {
     for (let index = recent.length - 1; index >= 0; index -= 1) {
       const note = recent[index];
       const region = state.regions.find((candidate) => candidate.id === note.regionId);
-      if (!region) continue;
-      const point = this.screen(region.x, region.y);
+      const x = note.focusX ?? region?.x;
+      const y = note.focusY ?? region?.y;
+      if (x === undefined || y === undefined) continue;
+      const point = this.screen(x, y);
       if (point.x < -60 || point.y < -60 || point.x > innerWidth + 60 || point.y > innerHeight + 60) continue;
       const age = Math.max(0, state.day - note.day);
       const freshness = Math.max(0.18, 1 - age / 420);
@@ -153,6 +173,97 @@ export class Renderer {
       ctx.fillStyle = index === 0 ? '#c8f3d8' : '#eadfae';
       ctx.globalAlpha = freshness;
       ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  private drawLandmark(landmark: Landmark, state: PlanetState): void {
+    const ctx = this.ctx;
+    const point = this.screen(landmark.x, landmark.y);
+    if (point.x < -120 || point.y < -50 || point.x > innerWidth + 120 || point.y > innerHeight + 50) return;
+    const age = Math.max(0, state.day - landmark.createdDay);
+    const alpha = clamp(landmark.strength * (1 - age / 8000), 0.18, 0.9);
+    const color = landmark.kind === 'burn-scar'
+      ? '#d9784f'
+      : landmark.kind === 'migration-route'
+        ? '#d8c476'
+        : landmark.kind === 'den'
+          ? '#dc6757'
+          : '#b9d47b';
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.fillStyle = `${color}2a`;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    if (this.camera.zoom >= 6) {
+      ctx.font = '600 10px Inter, system-ui, sans-serif';
+      const width = ctx.measureText(landmark.name).width + 18;
+      ctx.fillStyle = 'rgba(3,8,8,.78)';
+      ctx.beginPath();
+      ctx.roundRect(point.x + 8, point.y - 11, width, 21, 10);
+      ctx.fill();
+      ctx.fillStyle = color;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(landmark.name, point.x + 17, point.y);
+    }
+    ctx.restore();
+  }
+
+  private drawGroupOverlays(state: PlanetState): void {
+    if (this.view !== 'groups') return;
+    const ctx = this.ctx;
+    ctx.save();
+
+    for (const group of state.groups) {
+      const center = this.groupCenter(group, state);
+      const point = this.screen(center.x, center.y);
+      if (point.x < -180 || point.y < -100 || point.x > innerWidth + 180 || point.y > innerHeight + 100) continue;
+      const territory = (group.species === 'predator' ? 8.5 : group.species === 'grazer' ? 6.8 : 7.5) + Math.sqrt(group.memberIds.length) * 0.75;
+
+      ctx.strokeStyle = `${group.color}88`;
+      ctx.fillStyle = `${group.color}12`;
+      ctx.lineWidth = group.species === 'predator' ? 2 : 1.25;
+      ctx.setLineDash(group.species === 'grazer' ? [8, 6] : group.species === 'scavenger' ? [3, 5] : []);
+      ctx.beginPath();
+      ctx.ellipse(point.x, point.y, territory * this.camera.zoom, territory * this.camera.zoom * 0.68, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      if (group.route.length > 1) {
+        ctx.strokeStyle = `${group.color}78`;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        group.route.forEach((routePoint, index) => {
+          const route = this.screen(routePoint.x, routePoint.y);
+          if (index === 0) ctx.moveTo(route.x, route.y);
+          else ctx.lineTo(route.x, route.y);
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      const label = `${group.name} · ${group.memberIds.length}`;
+      ctx.font = '700 11px Inter, system-ui, sans-serif';
+      const width = ctx.measureText(label).width + 22;
+      ctx.fillStyle = 'rgba(2,8,8,.82)';
+      ctx.strokeStyle = `${group.color}aa`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(point.x - width / 2, point.y - 16, width, 25, 12);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = group.color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, point.x, point.y - 3.5);
     }
     ctx.restore();
   }
@@ -210,12 +321,39 @@ export class Renderer {
         if (this.view === 'moisture') color = `rgb(${20 + tile.moisture * 40},${45 + tile.moisture * 70},${65 + tile.moisture * 135})`;
         if (this.view === 'soil') color = `rgb(${45 + tile.fertility * 90},${38 + tile.fertility * 95},${25 + tile.fertility * 35})`;
         if (this.view === 'pressure') color = `rgb(${40 + tile.pressure * 160},${50 - tile.pressure * 20},${42 - tile.pressure * 10})`;
+        if (this.view === 'memory') {
+          const burn = tile.burn;
+          const trail = tile.trail;
+          color = `rgb(${32 + burn * 150 + trail * 55},${39 + trail * 85 - burn * 18},${34 + trail * 24 - burn * 14})`;
+        }
+        if (this.view === 'groups') {
+          const base = tile.biome === 'ocean' ? [18, 48, 68] : [38, 58, 45];
+          color = `rgb(${base[0]},${base[1]},${base[2]})`;
+        }
         ctx.fillStyle = color;
         ctx.fillRect(point.x, point.y, size, size);
+
+        if (this.view === 'natural' && tile.biome !== 'ocean') {
+          if (tile.burn > 0.08) {
+            ctx.fillStyle = `rgba(92,39,24,${Math.min(0.48, tile.burn * 0.55)})`;
+            ctx.fillRect(point.x, point.y, size, size);
+          }
+          if (tile.trail > 0.12) {
+            ctx.fillStyle = `rgba(211,190,123,${Math.min(0.22, tile.trail * 0.25)})`;
+            ctx.fillRect(point.x, point.y, size, size);
+          }
+        }
       }
     }
 
-    ctx.globalAlpha = 0.25;
+    if (this.view === 'memory') {
+      for (const landmark of state.landmarks) this.drawLandmark(landmark, state);
+    }
+
+    this.drawGroupOverlays(state);
+
+    const groupColors = new Map(state.groups.map((group) => [group.id, group.color]));
+    ctx.globalAlpha = this.view === 'groups' ? 0.16 : 0.25;
     for (const current of state.entities) {
       if (current.species !== 'plant' && current.species !== 'fungi') continue;
       const point = this.screen(current.x, current.y);
@@ -231,7 +369,7 @@ export class Renderer {
       if (current.species === 'plant' || current.species === 'fungi') continue;
       const point = this.screen(current.x, current.y);
       if (point.x < -20 || point.y < -20 || point.x > innerWidth + 20 || point.y > innerHeight + 20) continue;
-      const color = (speciesColors[current.species] || ['white'])[current.breed % 6];
+      const color = current.groupId ? groupColors.get(current.groupId) ?? speciesColors[current.species][current.breed % 6] : speciesColors[current.species][current.breed % 6];
       ctx.fillStyle = color;
       ctx.strokeStyle = 'rgba(0,0,0,.45)';
       ctx.lineWidth = 1.5;
@@ -255,7 +393,7 @@ export class Renderer {
     this.drawRegionLabels(state);
     this.drawBrush();
 
-    ctx.fillStyle = 'rgba(255,255,255,.045)';
+    ctx.fillStyle = 'rgba(255,255,255,.035)';
     ctx.fillRect(0, 0, innerWidth, innerHeight);
   }
 }

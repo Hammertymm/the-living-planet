@@ -34,6 +34,7 @@ canvas.painting { cursor: crosshair; }
 .stewardship,
 .viewbar,
 .chronicle,
+.wildlife,
 .open-tools {
   border: 1px solid rgba(255,255,255,.10);
   background: rgba(3, 8, 8, .68);
@@ -136,7 +137,9 @@ button.active {
   pointer-events: none;
 }
 .naturalist h2,
-.stewardship h2 {
+.stewardship h2,
+.wildlife h2,
+.chronicle h2 {
   margin: 0;
   font-size: 11px;
   letter-spacing: .18em;
@@ -325,6 +328,94 @@ input[type="range"] {
   font-style: normal;
 }
 
+
+.wildlife {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: min(410px, calc(100vw - 32px));
+  max-height: min(520px, calc(100vh - 150px));
+  border-radius: 20px;
+  padding: 12px;
+  overflow: hidden;
+  pointer-events: auto;
+}
+.registry-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin-bottom: 9px;
+}
+.registry-summary span {
+  display: grid;
+  gap: 2px;
+  padding: 8px 9px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  color: #8fa49d;
+  background: rgba(255,255,255,.035);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.registry-summary strong {
+  color: #dcebe4;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+.wildlife-list {
+  display: grid;
+  gap: 7px;
+  max-height: 365px;
+  overflow: auto;
+  padding-right: 3px;
+}
+.wildlife-entry {
+  display: grid;
+  grid-template-columns: 30px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 49px;
+  padding: 8px 10px;
+  text-align: left;
+  background: rgba(255,255,255,.035);
+}
+.wildlife-symbol {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid color-mix(in srgb, var(--group-color) 65%, transparent);
+  border-radius: 50%;
+  color: var(--group-color);
+  background: color-mix(in srgb, var(--group-color) 14%, transparent);
+  font-size: 13px;
+}
+.wildlife-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.wildlife-copy strong {
+  overflow: hidden;
+  color: #e6f0eb;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wildlife-copy small {
+  overflow: hidden;
+  color: #879b94;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wildlife-generation {
+  color: #70877f;
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
 .help {
   position: absolute;
   bottom: 16px;
@@ -348,7 +439,7 @@ input[type="range"] {
   .viewbar { top: 78px; max-width: calc(100vw - 32px); overflow-x: auto; }
   .stewardship { top: 132px; right: 12px; width: 276px; max-height: calc(100vh - 210px); }
   .naturalist { left: 12px; bottom: 12px; width: min(390px, calc(100vw - 24px)); }
-  .chronicle { right: 12px; bottom: 12px; width: min(360px, calc(100vw - 24px)); }
+  .chronicle, .wildlife { right: 12px; bottom: 12px; width: min(380px, calc(100vw - 24px)); }
   .help { display: none; }
 }
 
@@ -358,5 +449,5 @@ input[type="range"] {
   .viewbar button:nth-child(-n+4) { display: none; }
   .stewardship { left: 12px; right: 12px; width: auto; }
   .naturalist { font-size: 12px; }
-  .chronicle { left: 12px; right: 12px; width: auto; max-height: 48vh; }
+  .chronicle, .wildlife { left: 12px; right: 12px; width: auto; max-height: 48vh; }
 }
