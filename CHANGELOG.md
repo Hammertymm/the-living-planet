@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.0.1 — Living Herds balance correction
+
+- Fixed named grazer herds tending to shrink without ever producing visible growth.
+- Herd migration now targets real forage concentrations inside the selected region.
+- Initial herds begin closer to viable food sources.
+- Increased grazer forage-detection range and food energy return.
+- Added resource-gated spring calving pulses for established herds.
+- Reduced the individual grazer reproduction threshold and made it seasonal.
+- Added maturity requirements and retained food, energy and predator constraints.
+- Raised the herd split threshold from 32 to 46 members so growth is visible before division.
+- Restricted emergency grazer reintroduction to near-collapse conditions.
+- Adjusted predator recovery to preserve the trophic layer when grazers remain viable.
+- Verified TypeScript, API syntax, production build, existing-world migration and five 5,000-day seeded simulations.
+
 ## v2.0.0 — Genesis
 
 This release consolidates several development phases into one full replacement package.

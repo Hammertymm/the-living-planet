@@ -14,7 +14,7 @@ app.innerHTML = `
   <div class="topbar">
     <section class="brand">
       <h1>The Living Planet</h1>
-      <p>v2.0 · Evolution, Memory & Intelligence</p><span class="save-status" id="save-status">Preparing world…</span>
+      <p>v2.0.1 · Living Herds Balance</p><span class="save-status" id="save-status">Preparing world…</span>
     </section>
     <section class="metrics" id="metrics"></section>
   </div>
@@ -217,7 +217,7 @@ const documentaryDirector = document.querySelector<HTMLButtonElement>('#document
 let chronicleSignature = '';
 let wildlifeSignature = '';
 
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.0.1';
 const AUTOSAVE_ID = 'autosave';
 
 function cleanWorldName(value: string, seed = sim.state.seed): string {
@@ -962,7 +962,7 @@ addEventListener('keydown', (event) => {
 });
 
 installLivingPlanetBridge({
-  version: '2.0.0',
+  version: '2.0.1',
   snapshot: () => sim.snapshot(),
   counts: () => sim.counts(),
   worldInfo: () => ({ name: currentWorldName, seed: sim.state.seed, day: sim.state.day, season: sim.state.seasonName }),

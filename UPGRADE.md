@@ -1,4 +1,4 @@
-# Upgrade to v2.0
+# Upgrade to v2.0.1
 
 1. Stop the development server with `Ctrl+C`.
 2. Extract the contents of this package over:
@@ -25,7 +25,7 @@ After testing:
 
 ```powershell
 git add .
-git commit -m "Release The Living Planet v2.0 Genesis"
+git commit -m "Fix herd growth and forage balance"
 git push
 ```
 

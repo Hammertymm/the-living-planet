@@ -454,7 +454,8 @@ export class Simulation {
     ];
     for (const [species, count, regionId, radius] of initialGroups) {
       const region = this.region(regionId);
-      const point = this.pointNearXY(region.x, region.y, 8, true) ?? { x: region.x, y: region.y };
+      const fallback = this.pointNearXY(region.x, region.y, 8, true) ?? { x: region.x, y: region.y };
+      const point = this.resourceHotspot(species, region, fallback);
       this.createSocialGroup(species, count, point.x, point.y, radius, false);
     }
   }
@@ -693,6 +694,38 @@ export class Simulation {
     return resources;
   }
 
+  private resourceHotspot(
+    species: SocialSpecies,
+    region: Region,
+    origin: { x: number; y: number } = { x: region.x, y: region.y },
+  ): { x: number; y: number } {
+    const foodSpecies: Species = species === 'grazer' ? 'plant' : species === 'predator' ? 'grazer' : 'carrion';
+    const candidates = this.state.entities.filter((current) =>
+      current.species === foodSpecies
+      && current.energy > 0
+      && this.regionAt(current.x, current.y).id === region.id,
+    );
+    if (candidates.length === 0) return { x: region.x, y: region.y };
+
+    const stride = Math.max(1, Math.floor(candidates.length / 36));
+    let best = candidates[0];
+    let bestScore = Number.NEGATIVE_INFINITY;
+    for (let index = this.rng.int(0, Math.max(0, stride - 1)); index < candidates.length; index += stride) {
+      const candidate = candidates[index];
+      let nearbyFood = 0;
+      for (let sample = 0; sample < candidates.length; sample += Math.max(1, Math.floor(candidates.length / 80))) {
+        if (dist(candidate, candidates[sample]) < 9) nearbyFood += 1;
+      }
+      const travelPenalty = dist(candidate, origin) * 0.055;
+      const score = nearbyFood - travelPenalty + this.rng.range(-0.8, 0.8);
+      if (score > bestScore) {
+        best = candidate;
+        bestScore = score;
+      }
+    }
+    return { x: best.x, y: best.y };
+  }
+
   private redirectGroups(): void {
     const resources = this.regionResources();
     for (const group of this.state.groups) {
@@ -712,23 +745,30 @@ export class Simulation {
         }
       }
 
-      if (bestRegion.id !== group.targetRegionId) {
-        const previous = this.region(group.targetRegionId);
-        group.targetRegionId = bestRegion.id;
-        group.targetX = bestRegion.x;
-        group.targetY = bestRegion.y;
-        const current = this.groupLocation(group);
+      const previous = this.region(group.targetRegionId);
+      const current = this.groupLocation(group);
+      const nextTarget = this.resourceHotspot(group.species, bestRegion, current);
+      const changedRegion = bestRegion.id !== group.targetRegionId;
+      const shiftedRange = Math.hypot(group.targetX - nextTarget.x, group.targetY - nextTarget.y) > 8;
+      group.targetRegionId = bestRegion.id;
+      group.targetX = nextTarget.x;
+      group.targetY = nextTarget.y;
+
+      if (changedRegion) {
         group.route.push({ x: current.x, y: current.y, day: this.state.day });
         group.route = group.route.slice(-12);
         group.lastEventDay = this.state.day;
         this.addLandmark('migration-route', `${group.name} crossing`, current.x, current.y, this.regionAt(current.x, current.y), 0.72);
         this.note(`${group.name} has turned away from the ${previous.name} and begun moving toward the ${bestRegion.name}. Food, carrion and pressure are redrawing its route.`, bestRegion.id, group.id, current.x, current.y);
+      } else if (shiftedRange) {
+        group.route.push({ x: current.x, y: current.y, day: this.state.day });
+        group.route = group.route.slice(-12);
       }
     }
   }
 
   private splitLargeHerd(): void {
-    const candidates = this.state.groups.filter((group) => group.species === 'grazer' && group.memberIds.length >= 32 && this.state.day - group.lastEventDay > 180);
+    const candidates = this.state.groups.filter((group) => group.species === 'grazer' && group.memberIds.length >= 46 && this.state.day - group.lastEventDay > 210);
     if (candidates.length === 0 || this.state.groups.filter((group) => group.species === 'grazer').length >= 9) return;
     const source = this.rng.pick(candidates);
     const positions = this.groupPositions();
@@ -764,6 +804,53 @@ export class Simulation {
     this.state.groups.push(child);
     this.addLandmark('grazing-ground', `${child.name} birthplace`, center.x, center.y, region, 0.68);
     this.note(`${source.name} has divided in the ${region.name}. The younger animals now travel as ${child.name}, creating a new thread in the planet's living history.`, region.id, child.id, center.x, center.y);
+  }
+
+  private seasonalGrazerBirths(): void {
+    if (this.state.seasonName !== 'Spring' || this.state.day % 45 !== 0 || this.state.entities.length >= MAX_ENTITIES) return;
+
+    const resources = this.regionResources();
+    const entityById = new Map(this.state.entities.map((current) => [current.id, current]));
+    for (const group of this.state.groups) {
+      if (group.species !== 'grazer' || group.memberIds.length < 2) continue;
+      const members = group.memberIds.map((id) => entityById.get(id)).filter((current): current is Entity => Boolean(current));
+      if (members.length < 2) continue;
+
+      const region = this.region(group.targetRegionId);
+      const local = resources.get(region.id);
+      if (!local) continue;
+      const foodPerGrazer = local.plant / Math.max(1, local.grazer);
+      const predatorRatio = local.predator / Math.max(1, local.grazer);
+      const averageEnergy = members.reduce((total, member) => total + member.energy, 0) / members.length;
+      if (foodPerGrazer < 2.4 || averageEnergy < 28 || predatorRatio > 0.42) continue;
+
+      const carryingCapacity = Math.max(8, Math.floor(local.plant / 2.5));
+      const availableCapacity = Math.max(0, carryingCapacity - local.grazer);
+      if (availableCapacity === 0) continue;
+
+      const birthRate = cap(0.10 + Math.min(0.12, foodPerGrazer * 0.018) - Math.min(0.07, predatorRatio * 0.16), 0.08, 0.22);
+      const desiredBirths = Math.max(1, Math.floor(members.length * birthRate + this.rng.next()));
+      const births = Math.min(5, desiredBirths, availableCapacity, MAX_ENTITIES - this.state.entities.length);
+      let born = 0;
+      for (let index = 0; index < births; index += 1) {
+        const eligible = members.filter((member) => member.age >= 60 && member.energy > 24);
+        if (eligible.length === 0) break;
+        const parent = this.rng.pick(eligible);
+        const point = this.pointNearXY(parent.x, parent.y, 1.4, true) ?? { x: parent.x, y: parent.y };
+        const child = this.offspring(parent, point.x, point.y, group.id);
+        child.energy = 58 + this.rng.range(0, 8);
+        this.state.entities.push(child);
+        parent.energy = Math.max(18, parent.energy - 6);
+        parent.cooldown = Math.max(parent.cooldown, 30);
+        born += 1;
+      }
+
+      if (born >= 2 && this.state.day - group.lastEventDay > 90) {
+        const center = this.groupLocation(group);
+        this.note(`${group.name} has entered a successful calving season in the ${region.name}. ${born} young grazers have joined the herd while forage remains abundant.`, region.id, group.id, center.x, center.y, 2);
+        group.lastEventDay = this.state.day;
+      }
+    }
   }
 
   private mergeSmallGroups(): void {
@@ -977,9 +1064,9 @@ export class Simulation {
           current.energy -= tile.fire * (0.9 / current.genome.resilience);
         }
         let target: Entity | undefined;
-        if (current.species === 'grazer') target = entities.find((other) => other.species === 'plant' && dist(current, other) < 6 * current.genome.vision);
-        if (current.species === 'predator') target = entities.find((other) => other.species === 'grazer' && dist(current, other) < 9 * current.genome.vision);
-        if (current.species === 'scavenger') target = entities.find((other) => other.species === 'carrion' && dist(current, other) < 10 * current.genome.vision);
+        if (current.species === 'grazer') target = entities.find((other) => other.species === 'plant' && other.energy > 0 && dist(current, other) < 10 * current.genome.vision);
+        if (current.species === 'predator') target = entities.find((other) => other.species === 'grazer' && other.energy > 0 && dist(current, other) < 9 * current.genome.vision);
+        if (current.species === 'scavenger') target = entities.find((other) => other.species === 'carrion' && other.energy > 0 && dist(current, other) < 10 * current.genome.vision);
 
         const group = current.groupId ? groupById.get(current.groupId) : undefined;
         const center = current.groupId ? centers.get(current.groupId) : undefined;
@@ -1026,7 +1113,7 @@ export class Simulation {
                 current.cooldown = 12;
               }
             } else {
-              current.energy += target.species === 'plant' ? 12 : 11;
+              current.energy += target.species === 'plant' ? 15 : 11;
               target.energy -= 999;
               current.cooldown = current.species === 'scavenger' ? 18 : 12;
             }
@@ -1056,14 +1143,17 @@ export class Simulation {
         const movementTile = this.state.tiles[idx(current.x, current.y)];
         movementTile.trail = cap(movementTile.trail + (current.species === 'grazer' ? 0.007 : current.species === 'predator' ? 0.0045 : 0.003), 0, 1);
 
-        const reproductionThreshold = (current.species === 'predator' ? 180 : current.species === 'scavenger' ? 120 : 95) / current.genome.fertility;
-        if (current.energy > reproductionThreshold && current.cooldown === 0 && entities.length < MAX_ENTITIES) {
+        const seasonalBirthFactor = this.state.seasonName === 'Spring' ? 0.9 : this.state.seasonName === 'Winter' ? 1.1 : 1;
+        const baseReproductionThreshold = current.species === 'predator' ? 180 : current.species === 'scavenger' ? 120 : 86;
+        const reproductionThreshold = (baseReproductionThreshold * seasonalBirthFactor) / current.genome.fertility;
+        const mature = current.age >= (current.species === 'grazer' ? 75 : 110);
+        if (mature && current.energy > reproductionThreshold && current.cooldown === 0 && entities.length < MAX_ENTITIES) {
           const childBreed = this.rng.next() < 0.09 ? (current.breed + this.rng.pick([-1, 1]) + 6) % 6 : current.breed;
           const child = this.offspring(current, current.x + this.rng.range(-1, 1), current.y + this.rng.range(-1, 1), current.groupId);
           child.breed = childBreed;
           entities.push(child);
-          current.energy *= 0.52;
-          current.cooldown = 120;
+          current.energy *= current.species === 'grazer' ? 0.62 : 0.52;
+          current.cooldown = current.species === 'grazer' ? 90 : 120;
         }
       }
     }
@@ -1074,6 +1164,7 @@ export class Simulation {
       else if (current.species !== 'plant' && current.species !== 'carrion') survivors.push(entity('carrion', current.x, current.y, this.rng));
     }
     this.state.entities = survivors.slice(0, MAX_ENTITIES);
+    this.seasonalGrazerBirths();
     this.refreshGroupMembership(this.state.day % 30 === 0);
     if (this.state.day % 30 === 0) this.refreshLineages(true);
 
@@ -1094,17 +1185,18 @@ export class Simulation {
 
     if (this.state.day % 90 === 0) {
       const counts = this.counts();
-      if (counts.grazer < 34 && counts.plant > 280) {
+      if (counts.grazer < 18 && counts.plant > 280) {
         const resources = this.regionResources();
         const region = [...this.state.regions].sort((a, b) => resources.get(b.id)!.plant - resources.get(a.id)!.plant)[0] ?? this.region('central');
-        this.createSocialGroup('grazer', counts.grazer < 18 ? 18 : 11, region.x, region.y, 12, true);
+        const point = this.resourceHotspot('grazer', region);
+        this.createSocialGroup('grazer', counts.grazer < 8 ? 14 : 8, point.x, point.y, 10, true);
       }
       if (counts.plant < 180) {
         const region = this.randomRegion();
         this.seedClusterAt('plant', 300, region.x, region.y, 16);
         this.note(`After a sparse season, plant life returns in scattered islands across the ${region.name}.`, region.id, undefined, region.x, region.y, 2);
       }
-      if (counts.predator < 2 && counts.grazer > 25) {
+      if (counts.predator < 2 && counts.grazer > 18) {
         const resources = this.regionResources();
         const region = [...this.state.regions].sort((a, b) => resources.get(b.id)!.grazer - resources.get(a.id)!.grazer)[0] ?? this.region('north');
         this.createSocialGroup('predator', 2, region.x, region.y, 9, true);

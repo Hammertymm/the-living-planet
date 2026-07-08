@@ -1,8 +1,24 @@
-# The Living Planet v2.0 — Genesis
+# The Living Planet v2.0.1 — Living Herds
 
 A browser-based living ecosystem designed to be watched, explored, questioned and gently influenced.
 
 The Living Planet combines a deterministic ecology simulation with a grounded intelligence layer. Weather, plants, fungi, grazers, predators, scavengers, social groups, genetic lineages and landscape memory evolve from the simulation. AI and analytical systems may interpret or compare those outcomes, but they do not invent the planet's reality.
+
+
+## v2.0.1 herd-balance correction
+
+Named grazer herds can now grow when food, energy and predator pressure permit. The original v2.0 balance allowed the planet-wide grazer population to be replenished, but most established named herds were spatially disconnected from forage and therefore only declined.
+
+The correction adds:
+
+- Migration toward actual vegetation hotspots rather than abstract region centres
+- Longer-range grazer foraging
+- Resource-gated spring calving seasons
+- Lower, seasonal reproductive thresholds without removing starvation or predation
+- A higher herd-splitting threshold so growth is visible before a herd divides
+- Emergency grazer reintroduction only near genuine population collapse
+
+Extinction remains possible. A herd in poor habitat or under sustained predation can still disappear, but healthy herds now gain young animals and can become visibly larger. Existing v2.0 worlds use the corrected behaviour as soon as they are loaded.
 
 ## What v2.0 adds
 
@@ -92,7 +108,7 @@ http://localhost:5173
 ## Upgrade an existing copy
 
 1. Stop Vite with `Ctrl+C`.
-2. Extract the v2.0 ZIP over `C:\Projects\the-living-planet`.
+2. Extract the v2.0.1 ZIP over `C:\Projects\the-living-planet`.
 3. Allow Windows to replace matching files.
 4. Run the commands above.
 
@@ -102,7 +118,7 @@ After testing:
 
 ```powershell
 git add .
-git commit -m "Release The Living Planet v2.0 Genesis"
+git commit -m "Fix herd growth and forage balance"
 git push
 ```
 
