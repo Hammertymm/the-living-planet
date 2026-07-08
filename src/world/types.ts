@@ -1,7 +1,7 @@
 export type Biome = 'ocean' | 'shore' | 'grass' | 'forest' | 'rock' | 'snow';
 export type Species = 'plant' | 'grazer' | 'predator' | 'scavenger' | 'fungi' | 'carrion';
 export type SocialSpecies = 'grazer' | 'predator' | 'scavenger';
-export type ViewMode = 'natural' | 'moisture' | 'soil' | 'pressure' | 'memory' | 'groups' | 'climate' | 'lineages';
+export type ViewMode = 'natural' | 'moisture' | 'water' | 'soil' | 'pressure' | 'memory' | 'groups' | 'climate' | 'lineages';
 export type PlacementTool =
   | 'observe'
   | 'plants'
@@ -15,6 +15,8 @@ export type PlacementTool =
   | 'wildfire';
 export type ClimateFrontKind = 'rain' | 'dry' | 'storm';
 export type SeasonName = 'Spring' | 'Summer' | 'Autumn' | 'Winter';
+export type AnimalSex = 'female' | 'male';
+export type NotableRole = 'founder' | 'matriarch' | 'pathfinder' | 'sentinel' | 'hunter' | 'scout' | 'elder' | 'survivor';
 
 export type LineageSpecies = Exclude<Species, 'carrion'>;
 
@@ -52,6 +54,8 @@ export interface Tile {
   trail: number;
   burn: number;
   fire: number;
+  water: number;
+  waterBase: number;
 }
 
 export interface Entity {
@@ -69,6 +73,21 @@ export interface Entity {
   generation: number;
   genome: Genome;
   lineageId?: string;
+  sex?: AnimalSex;
+  bornDay?: number;
+  motherId?: number;
+  fatherId?: number;
+  offspringCount?: number;
+  kills?: number;
+  thirst?: number;
+  fatigue?: number;
+  fear?: number;
+  injury?: number;
+  lastWaterDay?: number;
+  notable?: boolean;
+  name?: string;
+  role?: NotableRole;
+  history?: Array<{ day: number; text: string }>;
 }
 
 export interface Region {
@@ -100,9 +119,12 @@ export interface SocialGroup {
   lastEventDay: number;
   route: RoutePoint[];
   generation: number;
+  leaderId?: number;
+  notableIds?: number[];
+  lastLeaderDay?: number;
 }
 
-export type LandmarkKind = 'burn-scar' | 'migration-route' | 'den' | 'grazing-ground';
+export type LandmarkKind = 'burn-scar' | 'migration-route' | 'den' | 'grazing-ground' | 'waterhole' | 'river-crossing';
 
 export interface Landmark {
   id: string;

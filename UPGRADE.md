@@ -1,16 +1,7 @@
-# Upgrade to v2.0.3
-
-Extract this package over the existing project folder. Existing worlds remain compatible. The update changes only interface layout, group overlay colours and version metadata; it does not reset saves or alter ecology.
-
-# Upgrade to v2.0.1
+# Upgrade to The Living Planet v2.3
 
 1. Stop the development server with `Ctrl+C`.
-2. Extract the contents of this package over:
-
-```text
-C:\Projects\the-living-planet
-```
-
+2. Copy the complete contents of this package over `C:\Projects\the-living-planet`.
 3. Allow Windows to replace matching files.
 4. Run:
 
@@ -23,14 +14,6 @@ npm run build
 npm run dev
 ```
 
-5. Open the app and press `G` to open Genesis Observatory.
+Existing v2.x browser worlds remain compatible. On first load, old animals receive deterministic life-state defaults and the world gains persistent rivers and regional waterholes. Export important worlds before any major upgrade as normal.
 
-After testing:
-
-```powershell
-git add .
-git commit -m "Fix herd growth and forage balance"
-git push
-```
-
-Existing browser saves remain available. The first load may take slightly longer while older entities are assigned deterministic genomes and founding lineages.
+Open **Lives** or press `V`. Open **Water** from the left observation rail.

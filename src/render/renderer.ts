@@ -85,6 +85,7 @@ export class Renderer {
   showLabels = true;
   private targetCamera: { x: number; y: number; zoom: number } | null = null;
   brush = { tool: 'observe' as PlacementTool, x: 0, y: 0, radius: 8, visible: false };
+  highlightEntityId?: number;
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
@@ -328,7 +329,11 @@ export class Renderer {
         ? '#d8c476'
         : landmark.kind === 'den'
           ? '#dc6757'
-          : '#b9d47b';
+          : landmark.kind === 'waterhole'
+            ? '#65bfe2'
+            : landmark.kind === 'river-crossing'
+              ? '#8bd2e8'
+              : '#b9d47b';
 
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -500,6 +505,7 @@ export class Renderer {
 
         let color = this.terrainColor(tile, state, x, y);
         if (this.view === 'moisture') color = `rgb(${20 + tile.moisture * 40},${45 + tile.moisture * 70},${65 + tile.moisture * 135})`;
+        if (this.view === 'water') color = `rgb(${22 + tile.water * 34},${45 + tile.water * 112},${58 + tile.water * 168})`;
         if (this.view === 'soil') color = `rgb(${45 + tile.fertility * 90},${38 + tile.fertility * 95},${25 + tile.fertility * 35})`;
         if (this.view === 'pressure') color = `rgb(${40 + tile.pressure * 160},${50 - tile.pressure * 20},${42 - tile.pressure * 10})`;
         if (this.view === 'memory') {
@@ -523,6 +529,11 @@ export class Renderer {
         ctx.fillRect(point.x, point.y, size, size);
 
         if (this.view === 'natural' && tile.biome !== 'ocean') {
+          if (tile.water > 0.22) {
+            const waterAlpha = Math.min(0.62, (tile.water - 0.18) * 0.72);
+            ctx.fillStyle = `rgba(71,155,194,${waterAlpha})`;
+            ctx.fillRect(point.x, point.y, size, size);
+          }
           if (tile.burn > 0.08) {
             ctx.fillStyle = `rgba(92,39,24,${Math.min(0.48, tile.burn * 0.55)})`;
             ctx.fillRect(point.x, point.y, size, size);
@@ -590,6 +601,32 @@ export class Renderer {
       }
       ctx.fill();
       ctx.stroke();
+
+      if (current.notable && this.camera.zoom >= 6.5) {
+        const selected = current.id === this.highlightEntityId;
+        ctx.save();
+        ctx.strokeStyle = selected ? '#f4f1c5' : 'rgba(231,244,235,.72)';
+        ctx.lineWidth = selected ? 2.4 : 1.2;
+        ctx.setLineDash(selected ? [] : [3, 3]);
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, radius * (selected ? 2.7 : 2.15), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        if (selected && current.name) {
+          ctx.font = '700 10px Inter, system-ui, sans-serif';
+          const label = `${current.name} · ${current.role ?? 'followed'}`;
+          const width = ctx.measureText(label).width + 18;
+          ctx.fillStyle = 'rgba(2,8,8,.88)';
+          ctx.beginPath();
+          ctx.roundRect(point.x - width / 2, point.y - radius * 3.8 - 20, width, 21, 10);
+          ctx.fill();
+          ctx.fillStyle = '#eef4cf';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, point.x, point.y - radius * 3.8 - 9.5);
+        }
+        ctx.restore();
+      }
     }
 
     this.drawEventMarkers(state);

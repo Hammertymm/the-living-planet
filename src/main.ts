@@ -4,7 +4,8 @@ import { Renderer } from './render/renderer';
 import { installLivingPlanetBridge } from './integration/bridge';
 import { isWorldSave, listWorlds, loadWorld, removeWorld, saveWorld } from './persistence/worldStore';
 import type { WorldSave, WorldSaveMetadata } from './persistence/worldStore';
-import type { PlacementTool, SocialGroup, ViewMode } from './world/types';
+import { lifeStage } from './world/individuals';
+import type { Entity, PlacementTool, SocialGroup, ViewMode } from './world/types';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -14,7 +15,7 @@ app.innerHTML = `
   <div class="topbar">
     <section class="brand">
       <h1>The Living Planet</h1>
-      <p>v2.0.3 · Compact Observatory Docks</p><span class="save-status" id="save-status">Preparing world…</span>
+      <p>v2.3 · Living Creatures</p><span class="save-status" id="save-status">Preparing world…</span>
     </section>
     <section class="metrics" id="metrics"></section>
   </div>
@@ -28,6 +29,7 @@ app.innerHTML = `
       <div class="rail-grid rail-grid-left">
         <button data-view="natural" class="active">Natural</button>
         <button data-view="moisture">Moisture</button>
+        <button data-view="water">Water</button>
         <button data-view="soil">Soil</button>
         <button data-view="pressure">Pressure</button>
         <button data-view="climate">Climate</button>
@@ -36,6 +38,7 @@ app.innerHTML = `
         <button data-view="memory">Memory</button>
         <button id="chronicle-toggle">Chronicle</button>
         <button id="wildlife-toggle">Wildlife</button>
+        <button id="lives-toggle">Lives</button>
       </div>
     </section>
 
@@ -123,6 +126,18 @@ app.innerHTML = `
     <div class="wildlife-list" id="wildlife-list"></div>
   </section>
 
+  <section class="lives hidden" id="lives">
+    <div class="panel-heading">
+      <div>
+        <h2>Lives Worth Following</h2>
+        <p>A small cast of recognised animals with family, leadership and survival histories.</p>
+      </div>
+      <button id="close-lives" class="icon-button" title="Close lives">×</button>
+    </div>
+    <div class="lives-follow" id="lives-follow">Select an individual to inspect or follow.</div>
+    <div class="lives-list" id="lives-list"></div>
+  </section>
+
   <section class="worlds hidden" id="worlds">
     <div class="panel-heading">
       <div>
@@ -164,7 +179,7 @@ app.innerHTML = `
     <button id="documentary-director">Story follow: off</button>
   </div>
 
-  <div class="help">Wheel zoom · R recenter · L labels · C chronicle · W wildlife · M worlds · I intelligence · X science · G genesis · D documentary · [ ] time flow · Space pause</div>
+  <div class="help">Wheel zoom · R recenter · L labels · C chronicle · W wildlife · V lives · M worlds · I intelligence · X science · G genesis · D documentary · [ ] time flow · Space pause</div>
 </div>`;
 
 const canvas = document.querySelector<HTMLCanvasElement>('#world')!;
@@ -197,6 +212,7 @@ let lastPaintY = Number.NaN;
 let documentaryMode = false;
 let directorEnabled = false;
 let lastDirectedNote = '';
+let followedIndividualId: number | undefined;
 
 const metrics = document.querySelector<HTMLElement>('#metrics')!;
 const noteElement = document.querySelector<HTMLElement>('#note')!;
@@ -216,6 +232,10 @@ const wildlife = document.querySelector<HTMLElement>('#wildlife')!;
 const wildlifeList = document.querySelector<HTMLElement>('#wildlife-list')!;
 const wildlifeToggle = document.querySelector<HTMLButtonElement>('#wildlife-toggle')!;
 const registrySummary = document.querySelector<HTMLElement>('#registry-summary')!;
+const lives = document.querySelector<HTMLElement>('#lives')!;
+const livesList = document.querySelector<HTMLElement>('#lives-list')!;
+const livesToggle = document.querySelector<HTMLButtonElement>('#lives-toggle')!;
+const livesFollow = document.querySelector<HTMLElement>('#lives-follow')!;
 const climateSummary = document.querySelector<HTMLElement>('#climate-summary')!;
 const saveStatus = document.querySelector<HTMLElement>('#save-status')!;
 const worlds = document.querySelector<HTMLElement>('#worlds')!;
@@ -232,8 +252,9 @@ const directorToggle = document.querySelector<HTMLButtonElement>('#director-togg
 const documentaryDirector = document.querySelector<HTMLButtonElement>('#documentary-director')!;
 let chronicleSignature = '';
 let wildlifeSignature = '';
+let livesSignature = '';
 
-const APP_VERSION = '2.0.3';
+const APP_VERSION = '2.3.0';
 const AUTOSAVE_ID = 'autosave';
 
 function cleanWorldName(value: string, seed = sim.state.seed): string {
@@ -313,16 +334,21 @@ function resetUiAfterWorldChange(): void {
   lastUiDay = -1;
   chronicleSignature = '';
   wildlifeSignature = '';
+  livesSignature = '';
+  followedIndividualId = undefined;
+  renderer.highlightEntityId = undefined;
   accumulator = 0;
   last = performance.now();
   selectTool('observe');
   setDocumentary(false);
   setChronicle(false);
   setWildlife(false);
+  setLives(false);
   renderer.brush.visible = false;
   drawMetrics(true);
   drawChronicle(true);
   drawWildlife(true);
+  drawLives(true);
   updateWorldIdentity();
 }
 
@@ -426,6 +452,7 @@ function setWorlds(open: boolean): void {
   if (open) {
     setChronicle(false);
     setWildlife(false);
+    setLives(false);
     updateWorldIdentity();
     void drawWorldLibrary();
   }
@@ -588,6 +615,7 @@ function noteLocation(index: number): { x: number; y: number } | undefined {
 }
 
 function setDirector(enabled: boolean): void {
+  if (enabled && followedIndividualId !== undefined) setFollowIndividual(undefined);
   directorEnabled = enabled;
   directorToggle.classList.toggle('active', enabled);
   directorToggle.textContent = enabled ? 'Story follow: on' : 'Story follow';
@@ -602,9 +630,11 @@ function setDocumentary(enabled: boolean): void {
   document.body.classList.toggle('documentary-mode', enabled);
   documentaryToggle.classList.toggle('active', enabled);
   if (enabled) {
+    setFollowIndividual(undefined);
     selectTool('observe');
     setChronicle(false);
     setWildlife(false);
+    setLives(false);
     setWorlds(false);
     renderer.view = 'natural';
     document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((button) => button.classList.toggle('active', button.dataset.view === 'natural'));
@@ -638,10 +668,12 @@ function drawMetrics(force = false): void {
   const rain = sim.state.climateFronts.filter((front) => front.kind === 'rain').length;
   const dry = sim.state.climateFronts.filter((front) => front.kind === 'dry').length;
   const storms = sim.state.climateFronts.filter((front) => front.kind === 'storm').length;
+  const waterRefuges = sim.state.landmarks.filter((landmark) => landmark.kind === 'waterhole').length;
   climateSummary.innerHTML = `
     <div><span>Current season</span><strong>${sim.state.seasonName}</strong></div>
     <div><span>Prevailing wind</span><strong>${windLabel(sim.state.windX, sim.state.windY)}</strong></div>
-    <div><span>Active weather</span><strong>${rain} rain · ${dry} dry · ${storms} storm</strong></div>`;
+    <div><span>Active weather</span><strong>${rain} rain · ${dry} dry · ${storms} storm</strong></div>
+    <div><span>Water refuges</span><strong>${waterRefuges} named sources</strong></div>`;
 
   const note = sim.state.notes[0];
   const region = note?.regionId ? sim.state.regions.find((candidate) => candidate.id === note.regionId) : undefined;
@@ -681,6 +713,7 @@ function setChronicle(open: boolean): void {
   chronicleToggle.classList.toggle('active', open);
   if (open) {
     setWildlife(false);
+    setLives(false);
     setWorlds(false);
     drawChronicle(true);
   }
@@ -709,10 +742,11 @@ function drawWildlife(force = false): void {
     .sort((a, b) => a.species.localeCompare(b.species) || b.memberIds.length - a.memberIds.length)
     .map((group) => {
       const region = sim.state.regions.find((candidate) => candidate.id === group.targetRegionId);
+      const leader = group.leaderId ? sim.state.entities.find((candidate) => candidate.id === group.leaderId) : undefined;
       const symbol = group.species === 'grazer' ? '●' : group.species === 'predator' ? '▲' : '◆';
       return `<button class="wildlife-entry" data-group="${group.id}">
         <span class="wildlife-symbol" style="--group-color:${group.color}">${symbol}</span>
-        <span class="wildlife-copy"><strong>${group.name}</strong><small>${group.memberIds.length} members · ${groupStatus(group)}${region ? ` · ${region.name}` : ''}</small></span>
+        <span class="wildlife-copy"><strong>${group.name}</strong><small>${group.memberIds.length} members · ${groupStatus(group)}${region ? ` · ${region.name}` : ''}</small><small>${leader?.name ? `Led by ${escapeHtml(leader.name)}` : 'Leadership unsettled'}</small></span>
         <span class="wildlife-generation">G${group.generation}</span>
       </button>`;
     }).join('');
@@ -735,8 +769,96 @@ function setWildlife(open: boolean): void {
   if (open) {
     chronicle.classList.add('hidden');
     chronicleToggle.classList.remove('active');
+    setLives(false);
     setWorlds(false);
     drawWildlife(true);
+  }
+}
+
+function individualGroup(individual: Entity): SocialGroup | undefined {
+  return individual.groupId ? sim.state.groups.find((group) => group.id === individual.groupId) : undefined;
+}
+
+function individualCondition(individual: Entity): string {
+  if ((individual.injury ?? 0) > 0.55) return 'injured';
+  if ((individual.thirst ?? 0) > 0.72) return 'thirsty';
+  if ((individual.fatigue ?? 0) > 0.78) return 'exhausted';
+  if ((individual.fear ?? 0) > 0.55) return 'alarmed';
+  return 'healthy';
+}
+
+function setFollowIndividual(id?: number): void {
+  followedIndividualId = id;
+  renderer.highlightEntityId = id;
+  if (id !== undefined) {
+    const individual = sim.state.entities.find((candidate) => candidate.id === id);
+    if (individual) renderer.focus(individual.x, individual.y, 12);
+  }
+  drawLives(true);
+}
+
+function drawLives(force = false): void {
+  const notables = sim.notableIndividuals().slice(0, 18);
+  const signature = `${followedIndividualId ?? ''}|${notables.map((individual) => `${individual.id}:${Math.floor(individual.age / 15)}:${individual.role}:${individual.groupId}:${individual.offspringCount}:${individual.kills}:${Math.round((individual.injury ?? 0) * 10)}`).join('|')}`;
+  if (!force && signature === livesSignature) return;
+  livesSignature = signature;
+
+  const followed = followedIndividualId !== undefined ? notables.find((individual) => individual.id === followedIndividualId) : undefined;
+  livesFollow.innerHTML = followed
+    ? `<span>Following <strong>${escapeHtml(followed.name ?? 'recognised animal')}</strong></span><button id="stop-life-follow">Stop</button>`
+    : '<span>Select an individual to inspect or follow.</span>';
+  livesFollow.querySelector<HTMLButtonElement>('#stop-life-follow')?.addEventListener('click', () => setFollowIndividual(undefined));
+
+  livesList.innerHTML = notables.length
+    ? notables.map((individual) => {
+        const group = individualGroup(individual);
+        const region = sim.regionAt(individual.x, individual.y);
+        const stage = lifeStage(individual);
+        const speciesLabel = individual.species === 'grazer' ? 'Grazer' : individual.species === 'predator' ? 'Predator' : 'Scavenger';
+        const latestHistory = (individual.history ?? []).slice(-2).reverse();
+        const history = latestHistory.length
+          ? `<div class="life-history">${latestHistory.map((entry) => `<span><em>Day ${entry.day}</em>${escapeHtml(entry.text)}</span>`).join('')}</div>`
+          : '';
+        const legacy = individual.species === 'predator'
+          ? `${individual.kills ?? 0} successful hunts`
+          : `${individual.offspringCount ?? 0} descendants`;
+        return `<article class="life-entry species-${individual.species}${followedIndividualId === individual.id ? ' following' : ''}">
+          <button class="life-focus" data-life-id="${individual.id}">
+            <span class="life-mark">${individual.species === 'predator' ? '▲' : individual.species === 'scavenger' ? '◆' : '●'}</span>
+            <span class="life-copy"><strong>${escapeHtml(individual.name ?? speciesLabel)}</strong><small>${escapeHtml(individual.role ?? 'followed')} · ${stage} · ${individualCondition(individual)}</small><small>${escapeHtml(group?.name ?? speciesLabel)} · ${escapeHtml(region.name)} · ${legacy}</small></span>
+          </button>
+          <button class="life-follow-button" data-follow-life="${individual.id}">${followedIndividualId === individual.id ? 'Following' : 'Follow'}</button>
+          ${history}
+        </article>`;
+      }).join('')
+    : '<div class="empty-library">The Naturalist has not yet selected any lives to follow.</div>';
+
+  livesList.querySelectorAll<HTMLButtonElement>('[data-life-id]').forEach((button) => {
+    button.onclick = () => {
+      const id = Number(button.dataset.lifeId);
+      const individual = sim.state.entities.find((candidate) => candidate.id === id);
+      if (!individual) return;
+      renderer.highlightEntityId = id;
+      renderer.focus(individual.x, individual.y, 12);
+      drawLives(true);
+    };
+  });
+  livesList.querySelectorAll<HTMLButtonElement>('[data-follow-life]').forEach((button) => {
+    button.onclick = () => {
+      const id = Number(button.dataset.followLife);
+      setFollowIndividual(followedIndividualId === id ? undefined : id);
+    };
+  });
+}
+
+function setLives(open: boolean): void {
+  lives.classList.toggle('hidden', !open);
+  livesToggle.classList.toggle('active', open);
+  if (open) {
+    setChronicle(false);
+    setWildlife(false);
+    setWorlds(false);
+    drawLives(true);
   }
 }
 
@@ -756,11 +878,18 @@ function frame(time: number): void {
   } else {
     accumulator = 0;
   }
-  maybeDirectCamera();
+  if (followedIndividualId !== undefined) {
+    const followed = sim.state.entities.find((candidate) => candidate.id === followedIndividualId);
+    if (followed) renderer.setCinematicTarget(followed.x, followed.y, 12);
+    else setFollowIndividual(undefined);
+  } else {
+    maybeDirectCamera();
+  }
   renderer.render(sim.state);
   drawMetrics();
   drawChronicle();
   drawWildlife();
+  if (!lives.classList.contains('hidden')) drawLives();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -816,7 +945,7 @@ labelsButton.onclick = () => {
   labelsButton.classList.toggle('active', renderer.showLabels);
 };
 
-document.querySelector<HTMLButtonElement>('#recenter')!.onclick = () => renderer.recenter();
+document.querySelector<HTMLButtonElement>('#recenter')!.onclick = () => { setFollowIndividual(undefined); renderer.recenter(); };
 
 document.querySelector<HTMLButtonElement>('#collapse-tools')!.onclick = () => {
   stewardship.classList.add('hidden');
@@ -831,6 +960,8 @@ chronicleToggle.onclick = () => setChronicle(chronicle.classList.contains('hidde
 document.querySelector<HTMLButtonElement>('#close-chronicle')!.onclick = () => setChronicle(false);
 wildlifeToggle.onclick = () => setWildlife(wildlife.classList.contains('hidden'));
 document.querySelector<HTMLButtonElement>('#close-wildlife')!.onclick = () => setWildlife(false);
+livesToggle.onclick = () => setLives(lives.classList.contains('hidden'));
+document.querySelector<HTMLButtonElement>('#close-lives')!.onclick = () => setLives(false);
 worldsToggle.onclick = () => setWorlds(worlds.classList.contains('hidden'));
 document.querySelector<HTMLButtonElement>('#close-worlds')!.onclick = () => setWorlds(false);
 worldNameInput.onchange = () => {
@@ -868,11 +999,13 @@ function applyTool(clientX: number, clientY: number, announce: boolean): void {
   drawMetrics(true);
   drawChronicle(true);
   drawWildlife(true);
+  drawLives(true);
 }
 
 canvas.addEventListener('wheel', (event) => {
   event.preventDefault();
   if (directorEnabled) setDirector(false);
+  if (followedIndividualId !== undefined) setFollowIndividual(undefined);
   const before = renderer.worldFromScreen(event.clientX, event.clientY);
   renderer.camera.zoom = Math.max(3, Math.min(18, renderer.camera.zoom + (event.deltaY < 0 ? 1 : -1)));
   const after = renderer.worldFromScreen(event.clientX, event.clientY);
@@ -885,6 +1018,7 @@ canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 canvas.addEventListener('pointerdown', (event) => {
   event.preventDefault();
   if (directorEnabled) setDirector(false);
+  if (followedIndividualId !== undefined) setFollowIndividual(undefined);
   pointerId = event.pointerId;
   canvas.setPointerCapture(event.pointerId);
   lastX = event.clientX;
@@ -942,7 +1076,7 @@ canvas.addEventListener('pointermove', (event) => {
   }
 });
 
-canvas.addEventListener('dblclick', () => renderer.recenter());
+canvas.addEventListener('dblclick', () => { setFollowIndividual(undefined); renderer.recenter(); });
 
 const shortcutTools: Record<string, PlacementTool> = {
   '0': 'observe',
@@ -967,10 +1101,11 @@ addEventListener('keydown', (event) => {
     return;
   }
   if (event.key === 'Escape') selectTool('observe');
-  if (event.key.toLowerCase() === 'r') renderer.recenter();
+  if (event.key.toLowerCase() === 'r') { setFollowIndividual(undefined); renderer.recenter(); }
   if (event.key.toLowerCase() === 'l') labelsButton.click();
   if (event.key.toLowerCase() === 'c') chronicleToggle.click();
   if (event.key.toLowerCase() === 'w') wildlifeToggle.click();
+  if (event.key.toLowerCase() === 'v') livesToggle.click();
   if (event.key.toLowerCase() === 'm') worldsToggle.click();
   if (event.key.toLowerCase() === 'd') setDocumentary(!documentaryMode);
   if (event.key.toLowerCase() === 'f') setDirector(!directorEnabled);
@@ -978,7 +1113,7 @@ addEventListener('keydown', (event) => {
 });
 
 installLivingPlanetBridge({
-  version: '2.0.1',
+  version: '2.3.0',
   snapshot: () => sim.snapshot(),
   counts: () => sim.counts(),
   worldInfo: () => ({ name: currentWorldName, seed: sim.state.seed, day: sim.state.day, season: sim.state.seasonName }),
@@ -998,6 +1133,18 @@ installLivingPlanetBridge({
     };
   }),
   lineages: () => sim.state.lineages,
+  individuals: () => sim.notableIndividuals().map((individual) => ({
+    id: individual.id,
+    name: individual.name ?? `Animal ${individual.id}`,
+    species: individual.species as 'grazer' | 'predator' | 'scavenger',
+    role: individual.role ?? 'followed',
+    groupId: individual.groupId,
+    x: individual.x,
+    y: individual.y,
+    age: individual.age,
+    offspring: individual.offspringCount ?? 0,
+    kills: individual.kills ?? 0,
+  })),
   camera: () => renderer.camera,
   focus: (x, y, zoom) => renderer.setCinematicTarget(x, y, zoom ?? renderer.camera.zoom),
   recenter: () => renderer.recenter(),
@@ -1016,6 +1163,7 @@ selectTool('observe');
 drawMetrics(true);
 drawChronicle(true);
 drawWildlife(true);
+drawLives(true);
 setDirector(false);
 setDocumentary(false);
 

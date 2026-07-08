@@ -1,6 +1,36 @@
-# The Living Planet v2.0.3 — Compact Observatory
+# The Living Planet v2.3 — Living Creatures
 
 A browser-based living ecosystem designed to be watched, explored, questioned and gently influenced.
+
+## v2.3 — Living Creatures
+
+This release makes the planet easier to care about by adding a small cast of recognisable animals and making water part of animal survival and migration.
+
+### Lives worth following
+
+- Each herd, pack and scavenger colony begins with a recognised founder or leader.
+- The Naturalist promotes a limited number of notable adults rather than naming every animal.
+- Notable animals retain names, roles, age, family output, hunting record and a short life history.
+- Leadership passes to a successor when a group leader dies.
+- Open **Lives** or press `V` to inspect, focus or explicitly follow an individual.
+- Manual pan, zoom or recenter immediately ends individual follow.
+
+### Behavioural ecology
+
+- Juveniles remain closer to their group and flee predators more strongly.
+- Predators prefer vulnerable, injured, exhausted or young prey.
+- Large cooperative herds reduce predator hunting success.
+- Animals now experience thirst, fatigue, fear and recoverable injury.
+- Notable births, hunts, migrations, adulthood, elderhood, succession and death enter individual history.
+
+### Water and migration
+
+- Deterministic rivers, waterholes and named crossings are added to every world.
+- Rain, drought, summer heat and wildfire change surface water.
+- Animals seek water when thirsty.
+- Herd migration scores food, water, predators and landscape pressure together.
+- A new **Water** view reveals active water availability.
+- Existing v2.x saves are upgraded when loaded; their original ecology and history remain intact.
 
 The Living Planet combines a deterministic ecology simulation with a grounded intelligence layer. Weather, plants, fungi, grazers, predators, scavengers, social groups, genetic lineages and landscape memory evolve from the simulation. AI and analytical systems may interpret or compare those outcomes, but they do not invent the planet's reality.
 

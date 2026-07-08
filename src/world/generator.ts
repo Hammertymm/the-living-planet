@@ -28,7 +28,9 @@ export function generateTiles(w:number,h:number,seed:number): Tile[] {
     else if(elevation>.78 && heat<.45) biome='snow';
     else if(elevation>.70) biome='rock';
     else if(moisture>.58 && fertility>.52) biome='forest';
-    tiles.push({elevation,moisture,fertility,heat,biome,pressure:0,trail:0,burn:0,fire:0});
+    const lowlandWater = Math.max(0, Math.min(1, (0.43 - elevation) * 1.8 + (moisture - 0.62) * 0.42));
+    const waterBase = biome === 'ocean' ? 1 : biome === 'shore' ? 0.78 : lowlandWater;
+    tiles.push({elevation,moisture,fertility,heat,biome,pressure:0,trail:0,burn:0,fire:0,water:waterBase,waterBase});
   }
   return tiles;
 }

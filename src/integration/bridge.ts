@@ -11,6 +11,19 @@ export interface PlanetGroupSummary {
   y: number;
 }
 
+export interface PlanetIndividualSummary {
+  id: number;
+  name: string;
+  species: SocialSpecies;
+  role: string;
+  groupId?: string;
+  x: number;
+  y: number;
+  age: number;
+  offspring: number;
+  kills: number;
+}
+
 export interface PlanetWorldInfo {
   name: string;
   seed: number;
@@ -33,6 +46,7 @@ export interface LivingPlanetBridge {
   notes(): Note[];
   groups(): PlanetGroupSummary[];
   lineages(): Lineage[];
+  individuals(): PlanetIndividualSummary[];
   camera(): PlanetCameraState;
   focus(x: number, y: number, zoom?: number): void;
   recenter(): void;
@@ -56,6 +70,7 @@ interface BridgeOptions {
   notes: () => Note[];
   groups: () => PlanetGroupSummary[];
   lineages: () => Lineage[];
+  individuals: () => PlanetIndividualSummary[];
   camera: () => PlanetCameraState;
   focus: (x: number, y: number, zoom?: number) => void;
   recenter: () => void;
@@ -80,6 +95,7 @@ export function installLivingPlanetBridge(options: BridgeOptions): LivingPlanetB
     notes: () => structuredClone(options.notes()),
     groups: () => structuredClone(options.groups()),
     lineages: () => structuredClone(options.lineages()),
+    individuals: () => structuredClone(options.individuals()),
     camera: () => ({ ...options.camera() }),
     focus: options.focus,
     recenter: options.recenter,

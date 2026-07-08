@@ -50,3 +50,11 @@ Contains deterministic random generation, named regions, group naming/colour log
 3. Persistence should preserve history, not only recreate a starting seed.
 4. Observation clarity takes priority over raw entity count.
 5. Browser performance must remain stable on ordinary laptops.
+
+## Living creatures
+
+`src/world/individuals.ts` supplies deterministic naming, life-stage classification, notable-role selection and importance scoring. The simulation stores individual fields directly on social animals so saves retain ancestry, condition and history. Only a bounded set of animals becomes notable.
+
+Water is authoritative simulation state on each terrain tile through `water` and `waterBase`. Regional waterholes and a river network are generated deterministically. Climate and stewardship alter current water, while the base value drives gradual recovery. A cached water-source index prevents thirsty-animal navigation from scanning the entire map each step.
+
+The main application owns the Lives panel and explicit individual-follow camera mode. The renderer may highlight a selected individual but cannot mutate its state.

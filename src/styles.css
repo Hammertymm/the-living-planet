@@ -947,3 +947,156 @@ body.documentary-mode .control-docks {
   }
   .open-tools { top: 330px; }
 }
+
+/* v2.3 living creatures */
+.lives {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: min(430px, calc(100vw - 32px));
+  max-height: min(620px, calc(100vh - 150px));
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 20px;
+  padding: 12px;
+  overflow: hidden;
+  pointer-events: auto;
+  background: rgba(3, 8, 8, .76);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 35px rgba(0,0,0,.34);
+}
+
+.lives h2 {
+  margin: 0;
+  color: #9ad3b3;
+  font-size: 11px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.lives-follow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 39px;
+  margin-bottom: 9px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  color: #8fa49d;
+  background: rgba(255,255,255,.035);
+  font-size: 10px;
+}
+
+.lives-follow strong { color: #eef4cf; }
+.lives-follow button { padding: 6px 9px; font-size: 10px; }
+
+.lives-list {
+  display: grid;
+  gap: 8px;
+  max-height: 485px;
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.life-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  border: 1px solid rgba(255,255,255,.08);
+  border-left: 3px solid #d8c96d;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255,255,255,.032);
+}
+.life-entry.species-predator { border-left-color: #f05f57; }
+.life-entry.species-scavenger { border-left-color: #65c5d8; }
+.life-entry.following {
+  border-color: rgba(238,244,207,.55);
+  background: rgba(238,244,207,.07);
+}
+
+.life-focus {
+  display: grid;
+  grid-template-columns: 28px minmax(0,1fr);
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+  background: transparent;
+}
+
+.life-mark {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border: 1px solid rgba(228,216,102,.48);
+  border-radius: 50%;
+  color: #e4d866;
+  background: rgba(228,216,102,.10);
+}
+.species-predator .life-mark { border-color: rgba(240,95,87,.55); color: #f05f57; background: rgba(240,95,87,.11); }
+.species-scavenger .life-mark { border-color: rgba(101,197,216,.55); color: #65c5d8; background: rgba(101,197,216,.11); }
+
+.life-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.life-copy strong {
+  overflow: hidden;
+  color: #e8f1ec;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.life-copy small {
+  overflow: hidden;
+  color: #879b94;
+  font-size: 9.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.life-follow-button {
+  align-self: stretch;
+  min-width: 67px;
+  padding: 7px;
+  border: 0;
+  border-left: 1px solid rgba(255,255,255,.07);
+  border-radius: 0;
+  color: #a8b9b2;
+  background: rgba(255,255,255,.025);
+  font-size: 10px;
+}
+.life-entry.following .life-follow-button { color: #eef4cf; background: rgba(238,244,207,.09); }
+
+.life-history {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 4px;
+  padding: 7px 10px 9px 47px;
+  border-top: 1px solid rgba(255,255,255,.055);
+  color: #8fa29b;
+  font-size: 9px;
+  line-height: 1.35;
+}
+.life-history span { display: grid; grid-template-columns: 52px 1fr; gap: 6px; }
+.life-history em { color: #6f867e; font-style: normal; }
+
+body.documentary-mode .lives {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 860px) {
+  .lives { right: 12px; bottom: 12px; width: min(400px, calc(100vw - 24px)); }
+}
+
+@media (max-width: 580px) {
+  .lives { left: 12px; right: 12px; width: auto; max-height: 54vh; }
+  .lives-list { max-height: 39vh; }
+}

@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.3.0 — Living Creatures
+
+- Added named notable individuals without naming every simulated animal.
+- Added founder, matriarch, hunter, pathfinder, sentinel, scout, elder and survivor roles.
+- Added individual age, sex, descendants, hunting record, injury and short life-history records.
+- Added group leadership and evidence-grounded leadership succession.
+- Added the Lives panel with focus and opt-in individual camera follow.
+- Manual camera input cancels individual follow.
+- Added juvenile, adult and elder life stages.
+- Added thirst, fatigue, fear and recoverable injury.
+- Added juvenile group protection and vulnerability-aware predator selection.
+- Added cooperative herd defence to predator success calculations.
+- Added deterministic rivers, regional waterholes and named crossings.
+- Added persistent surface-water state affected by rain, drought, season and fire.
+- Added water-seeking behaviour and water-aware migration.
+- Added a Water analysis view and water-refuge summary.
+- Exposed notable individual summaries through the internal Living Planet bridge.
+- Preserved existing v2.x saves through automatic hydration of new fields.
+- Passed TypeScript, API, production build and multi-seed 2,500-day simulation tests.
+
 ## v2.0.3 — Compact Observatory Docks
 
 - Narrowed both left and right control rails to expose more of the planet canvas.

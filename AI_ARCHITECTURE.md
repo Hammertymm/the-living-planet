@@ -30,3 +30,7 @@ A server-side Naturalist endpoint may convert bounded evidence into richer prose
 - No agent silently alters the live world.
 - Causal claims remain cautious unless supported by controlled experiments.
 - The app remains usable offline without cloud intelligence.
+
+## v2.3 individual grounding
+
+The internal bridge now exposes bounded notable individual summaries. Future Naturalist and documentary reasoning may reference those lives, but names, roles, events and survival outcomes remain simulation-generated evidence.
