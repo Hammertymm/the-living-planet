@@ -1,35 +1,38 @@
+## v1.2.1 — ES2020 compatibility hotfix
+
+- Replaced `String.replaceAll()` with global regular-expression replacement.
+- Replaced `Array.at(-1)` with indexed access.
+- Restored a clean `npm run check` under the existing ES2020 target.
+
 # Changelog
 
-## v1.0.0 — Persistent Living Planet
+## v1.2.0 — Grounded Intelligence Preview
 
 ### Added
 
-- IndexedDB-backed World Library
-- Automatic recovery save and automatic resume
-- Multiple named manual world saves
-- Full simulation-state persistence, including random generator state
-- Save restoration for camera, view, labels, time flow and brush radius
-- New-world creation with custom or random deterministic seeds
-- Automatic archival of the current world before creating another
-- Portable `.planet.json` export and import
-- PNG planet capture
-- Seed copying and world identity summary
-- Save-state indicator and keyboard shortcut (`Ctrl+S`)
+- Evidence ledger with stable evidence IDs
+- Local offline Naturalist analysis
+- User questions grounded in recent world evidence
+- Automatic insights for significant ecological changes
+- Confidence and caveat display
+- Evidence navigation from every generated observation
+- Optional secure cloud Naturalist endpoint
+- Strict structured-output schema
+- Cloud-to-local failure fallback
+- AI settings and keyboard shortcut (`I`)
 
-### Improved
+### Preserved
 
-- Save operations clone a stable snapshot before asynchronous storage
-- Autosave interval reduced in frequency to protect animation smoothness
-- Package versions are pinned for repeatable installs
-- Removed an unused Vite dependency
-- Fixed panel coordination so World Library, Chronicle and Living Registry do not overlap
-- Corrected a stylesheet parsing error inherited from the prototype
+- Existing simulation engine and ecological balance
+- Manual camera fundamentals
+- Direct stewardship tools
+- Named regions, herds, packs and world memory
+- Climate, seasons, wildfire and Documentary mode
+- IndexedDB world persistence
 
-### Retained from v0.9
+### Deliberately deferred
 
-- Moving climate fronts
-- Visible seasonal transitions
-- Wind-driven wildfire and succession
-- Documentary mode and optional Story Follow
-- Named social groups, routes, territories and world memory
-- Direct stewardship tools and adjustable time flow
+- Direct engine event bus
+- Counterfactual world forks
+- AI documentary shot planning
+- Genetics and AI taxonomy

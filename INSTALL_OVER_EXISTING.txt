@@ -1,0 +1,3 @@
+This package is an upgrade overlay for The Living Planet v1.0.
+Extract all files over your existing C:\Projects\the-living-planet folder and allow replacement.
+It intentionally contains only new and modified files; existing simulation files remain unchanged.

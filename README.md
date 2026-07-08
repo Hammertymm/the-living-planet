@@ -1,74 +1,46 @@
-# The Living Planet v1.0
+# The Living Planet v1.2.1 — Grounded Intelligence Preview
 
-A browser-based living ecosystem designed to be watched, explored and gently influenced.
+This release adds the first AI-ready Naturalist without changing the established ecology, camera, world tools, regions, climate, persistence or documentary fundamentals.
 
-The planet contains persistent terrain, climate, seasons, plants, fungi, grazers, predators, scavengers, named social groups, landscape memory and a Naturalist that records significant events. v1.0 adds the first complete world-persistence system so a planet can develop over many sessions.
+## What is new
 
-## New in v1.0
+### Evidence ledger
 
-### Persistent worlds
+- Verified metrics and existing Naturalist observations are captured into a compact local ledger.
+- Significant population changes, extinctions and recoveries are derived from real snapshots.
+- Each record receives an evidence ID such as `E-0042`.
+- Evidence remains local to the browser and is capped to protect performance.
 
-- The current planet automatically saves in the browser every 45 seconds while time is moving.
-- The latest autosave is resumed when the application opens again.
-- Manual saves can be created and updated from the **Worlds** panel.
-- Multiple named worlds can coexist in the local World Library.
-- Creating a new planet automatically archives the current one first.
-- Camera position, selected view, labels, time flow and brush radius are restored with the world.
+### Naturalist 2.0
 
-Browser saves use IndexedDB. They remain on that browser and device unless exported.
+Open **Intelligence** in the top controls or press `I`.
 
-### Portable world files
+- **Insights** records meaningful changes.
+- **Evidence** shows exactly what supports each claim.
+- **Ask** answers questions about stability, populations, regions and recent change.
+- **Settings** controls automatic insights and optional cloud analysis.
 
-- Export a complete planet as a `.planet.json` file.
-- Import exported worlds on another computer or browser.
-- Copy the deterministic world seed.
-- Capture a clean PNG image of the visible planet canvas.
+The local Naturalist works offline and does not require any account or API key.
 
-### Stable world identity
+### Optional cloud analysis
 
-Each world now has:
+The included `/api/naturalist.js` serverless endpoint uses the OpenAI Responses API with a strict JSON schema. It is disabled unless `OPENAI_API_KEY` is configured on the deployment server.
 
-- A user-editable name
-- A deterministic seed
-- Current age and season
-- Population and social-group summary
-- Persistent Chronicle, landmarks, routes and burn scars
-- Full simulation random state, allowing the world to continue rather than merely restart from its seed
+The API key is never exposed to browser code.
 
-### Existing systems retained
+## Upgrade
 
-- Manual camera control with optional Story Follow
-- Named geographic regions
-- Direct mouse placement tools
-- Adjustable time flow
-- Moving climate fronts and four seasons
-- Living wildfire and ecological succession
-- Named grazer herds, predator packs and scavenger colonies
-- World Chronicle and Living Registry
-- Natural, moisture, soil, pressure, memory, groups and climate views
-- Documentary mode
+Extract this ZIP over the existing repository folder:
 
-## Install and run
+```powershell
+C:\Projects\the-living-planet
+```
 
-From the project folder:
+Then run:
 
 ```powershell
 npm install
-npm run dev
-```
-
-Open the local address printed by Vite, normally:
-
-```text
-http://localhost:5173
-```
-
-## Upgrade an existing local copy
-
-Extract the v1.0 ZIP over the existing repository folder, then run:
-
-```powershell
-npm install
+npm run check
 npm run dev
 ```
 
@@ -76,51 +48,33 @@ After testing:
 
 ```powershell
 git add .
-git commit -m "Release The Living Planet v1.0"
+git commit -m "Add grounded Naturalist intelligence preview"
 git push
 ```
 
-## Main controls
+## Optional Vercel cloud setup
 
-| Control | Action |
-|---|---|
-| Mouse wheel | Zoom around the pointer |
-| Drag in Observe mode | Pan |
-| Shift-drag or right-drag with a tool | Pan while a tool is selected |
-| `0–9` | Select stewardship tools |
-| `[` / `]` | Slow down / accelerate time |
-| `Space` | Pause or resume |
-| `R` | Recenter |
-| `L` | Toggle region labels |
-| `C` | World Chronicle |
-| `W` | Living Registry |
-| `M` | World Library |
-| `Ctrl+S` | Save the current world |
-| `D` | Documentary mode |
-| `F` | Optional Story Follow |
-| `Esc` | Return to Observe mode |
+1. Deploy the repository to Vercel.
+2. Add `OPENAI_API_KEY` as a server environment variable.
+3. Optionally set `OPENAI_MODEL=gpt-5.4-mini`.
+4. Redeploy.
+5. Open Intelligence → Settings → Cloud Naturalist.
 
-## Stewardship tools
+Do not create a `VITE_OPENAI_API_KEY`; variables prefixed with `VITE_` are exposed to browser code.
 
-- Plant growth
-- Grazer herd
-- Predator pack
-- Scavengers
-- Fungal colony
-- Rain front
-- Drought
-- Fertile soil
-- Wildfire
-
-The tools influence a living system; they do not directly script the outcome.
-
-## Production check
+## Checks
 
 ```powershell
 npm run check
+npm run check:api
 npm run build
 ```
 
-## Save-data note
+## Design rule
 
-Clearing browser site data will remove local World Library saves. Export important worlds before clearing browser storage or changing computers.
+> The simulation creates reality. Intelligence may observe and explain it, but never invent or silently control it.
+
+
+## v1.2.1 compatibility hotfix
+
+Replaced ES2021/ES2022-only `replaceAll()` and `Array.at()` calls so the project continues to compile with its ES2020 TypeScript target.
