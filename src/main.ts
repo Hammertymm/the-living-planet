@@ -14,29 +14,45 @@ app.innerHTML = `
   <div class="topbar">
     <section class="brand">
       <h1>The Living Planet</h1>
-      <p>v2.0.1 · Living Herds Balance</p><span class="save-status" id="save-status">Preparing world…</span>
+      <p>v2.0.2 · Observatory UI Docks</p><span class="save-status" id="save-status">Preparing world…</span>
     </section>
     <section class="metrics" id="metrics"></section>
   </div>
 
-  <div class="viewbar" id="viewbar">
-    <button data-view="natural" class="active">Natural</button>
-    <button data-view="moisture">Moisture</button>
-    <button data-view="soil">Soil</button>
-    <button data-view="pressure">Pressure</button>
-    <button data-view="memory">Memory</button>
-    <button data-view="groups">Groups</button>
-    <button data-view="climate">Climate</button>
-    <button data-view="lineages">Lineages</button>
-    <span class="divider"></span>
-    <button id="pause">Pause</button>
-    <button id="labels" class="active">Labels</button>
-    <button id="recenter">Recenter</button>
-    <button id="chronicle-toggle">Chronicle</button>
-    <button id="wildlife-toggle">Wildlife</button>
-    <button id="worlds-toggle">Worlds</button>
-    <button id="director-toggle">Story follow</button>
-    <button id="documentary-toggle">Documentary</button>
+  <div class="control-docks" id="viewbar">
+    <section class="control-rail left-rail">
+      <div class="rail-heading">
+        <h2>Views</h2>
+        <p>Observation layers and planetary records.</p>
+      </div>
+      <div class="rail-grid rail-grid-left">
+        <button data-view="natural" class="active">Natural</button>
+        <button data-view="moisture">Moisture</button>
+        <button data-view="soil">Soil</button>
+        <button data-view="pressure">Pressure</button>
+        <button data-view="climate">Climate</button>
+        <button data-view="lineages">Lineages</button>
+        <button data-view="groups">Groups</button>
+        <button data-view="memory">Memory</button>
+        <button id="chronicle-toggle">Chronicle</button>
+        <button id="wildlife-toggle">Wildlife</button>
+      </div>
+    </section>
+
+    <section class="control-rail right-rail">
+      <div class="rail-heading">
+        <h2>Observatory</h2>
+        <p>World controls, archives and guided viewing.</p>
+      </div>
+      <div class="rail-grid rail-grid-right">
+        <button id="pause">Pause</button>
+        <button id="labels" class="active">Labels</button>
+        <button id="recenter">Recenter</button>
+        <button id="worlds-toggle">Worlds</button>
+        <button id="director-toggle">Story follow</button>
+        <button id="documentary-toggle">Documentary</button>
+      </div>
+    </section>
   </div>
 
   <section class="naturalist">
@@ -217,7 +233,7 @@ const documentaryDirector = document.querySelector<HTMLButtonElement>('#document
 let chronicleSignature = '';
 let wildlifeSignature = '';
 
-const APP_VERSION = '2.0.1';
+const APP_VERSION = '2.0.2';
 const AUTOSAVE_ID = 'autosave';
 
 function cleanWorldName(value: string, seed = sim.state.seed): string {

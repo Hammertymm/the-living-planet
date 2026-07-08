@@ -750,3 +750,129 @@ body.documentary-mode canvas {
   .new-world-fields { grid-template-columns: 1fr 1fr; }
   .new-world-fields button { grid-column: 1 / -1; }
 }
+
+/* v2.0.2 observatory side docks */
+.control-rail {
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(3, 8, 8, .68);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 35px rgba(0,0,0,.30);
+}
+
+.control-docks {
+  position: absolute;
+  top: 92px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.left-rail,
+.right-rail {
+  width: 272px;
+  border-radius: 18px;
+  padding: 12px;
+  pointer-events: auto;
+}
+
+.right-rail { width: 318px; }
+
+.rail-heading {
+  margin-bottom: 10px;
+}
+
+.rail-heading h2 {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: #9ad3b3;
+}
+
+.rail-heading p {
+  margin: 5px 0 0;
+  color: #91a69f;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.rail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rail-grid button {
+  min-height: 40px;
+  padding: 9px 10px;
+  font-size: 12px;
+}
+
+.stewardship {
+  top: 294px;
+}
+
+.open-tools {
+  top: 294px;
+}
+
+body.documentary-mode .control-docks {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 1260px) {
+  .right-rail { width: 286px; }
+  .left-rail { width: 246px; }
+  .stewardship,
+  .open-tools { top: 286px; }
+}
+
+@media (max-width: 980px) {
+  .control-docks {
+    top: 78px;
+    gap: 10px;
+  }
+  .left-rail,
+  .right-rail {
+    width: min(48vw, 280px);
+    padding: 10px;
+  }
+  .rail-grid button {
+    min-height: 36px;
+    padding: 8px 8px;
+    font-size: 11px;
+  }
+  .stewardship {
+    top: 270px;
+    width: min(42vw, 300px);
+  }
+  .open-tools { top: 270px; }
+}
+
+@media (max-width: 760px) {
+  .control-docks {
+    left: 12px;
+    right: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .left-rail,
+  .right-rail,
+  .stewardship {
+    width: auto;
+  }
+  .stewardship {
+    top: 330px;
+    left: 12px;
+    right: 12px;
+  }
+  .open-tools {
+    top: 330px;
+    right: 12px;
+  }
+}
