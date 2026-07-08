@@ -1,8 +1,19 @@
-# The Living Planet v2.0.1 — Living Herds
+# The Living Planet v2.0.3 — Compact Observatory
 
 A browser-based living ecosystem designed to be watched, explored, questioned and gently influenced.
 
 The Living Planet combines a deterministic ecology simulation with a grounded intelligence layer. Weather, plants, fungi, grazers, predators, scavengers, social groups, genetic lineages and landscape memory evolve from the simulation. AI and analytical systems may interpret or compare those outcomes, but they do not invent the planet's reality.
+
+
+## v2.0.3 interface refinement
+
+The observatory controls now use narrower two-column rails on both sides, exposing more of the central world view. Group territories in the **Groups** view now use fixed species colours:
+
+- Grazers — yellow
+- Predators — red
+- Scavengers — cyan
+
+The right-side Stewardship panel has also been moved below the complete Observatory rail so Intelligence, Science Lab and Genesis remain visible.
 
 
 ## v2.0.1 herd-balance correction

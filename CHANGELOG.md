@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.0.3 — Compact Observatory Docks
+
+- Narrowed both left and right control rails to expose more of the planet canvas.
+- Reduced rail button height, padding and type size while preserving readability.
+- Moved the Stewardship panel lower so dynamically injected Intelligence, Science Lab and Genesis controls remain visible.
+- Standardised group territory overlays by animal type: grazers yellow, predators red and scavengers cyan.
+- Applied the same species colour to territory fills, borders, routes and group labels.
+- Preserved all simulation, persistence and herd-balance behaviour from v2.0.1.
+
+
 ## v2.0.1 — Living Herds balance correction
 
 - Fixed named grazer herds tending to shrink without ever producing visible growth.

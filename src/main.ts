@@ -14,7 +14,7 @@ app.innerHTML = `
   <div class="topbar">
     <section class="brand">
       <h1>The Living Planet</h1>
-      <p>v2.0.2 · Observatory UI Docks</p><span class="save-status" id="save-status">Preparing world…</span>
+      <p>v2.0.3 · Compact Observatory Docks</p><span class="save-status" id="save-status">Preparing world…</span>
     </section>
     <section class="metrics" id="metrics"></section>
   </div>
@@ -233,7 +233,7 @@ const documentaryDirector = document.querySelector<HTMLButtonElement>('#document
 let chronicleSignature = '';
 let wildlifeSignature = '';
 
-const APP_VERSION = '2.0.2';
+const APP_VERSION = '2.0.3';
 const AUTOSAVE_ID = 'autosave';
 
 function cleanWorldName(value: string, seed = sim.state.seed): string {

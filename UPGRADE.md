@@ -1,3 +1,7 @@
+# Upgrade to v2.0.3
+
+Extract this package over the existing project folder. Existing worlds remain compatible. The update changes only interface layout, group overlay colours and version metadata; it does not reset saves or alter ecology.
+
 # Upgrade to v2.0.1
 
 1. Stop the development server with `Ctrl+C`.

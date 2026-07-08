@@ -41,6 +41,12 @@ const speciesColors: Record<string, string[]> = {
   scavenger: ['#d7d0c0', '#c9bda8', '#b9c8d5', '#eee4c6', '#bcb3a1', '#d4cbb8'],
 };
 
+const groupOverlayColors: Record<SocialGroup['species'], string> = {
+  grazer: '#e4d866',
+  predator: '#f05f57',
+  scavenger: '#65c5d8',
+};
+
 const toolColors: Record<PlacementTool, string> = {
   observe: '#dce8e2',
   plants: '#75c86b',
@@ -358,9 +364,10 @@ export class Renderer {
       const point = this.screen(center.x, center.y);
       if (point.x < -180 || point.y < -100 || point.x > innerWidth + 180 || point.y > innerHeight + 100) continue;
       const territory = (group.species === 'predator' ? 8.5 : group.species === 'grazer' ? 6.8 : 7.5) + Math.sqrt(group.memberIds.length) * 0.75;
+      const overlayColor = groupOverlayColors[group.species];
 
-      ctx.strokeStyle = `${group.color}88`;
-      ctx.fillStyle = `${group.color}12`;
+      ctx.strokeStyle = `${overlayColor}a8`;
+      ctx.fillStyle = `${overlayColor}22`;
       ctx.lineWidth = group.species === 'predator' ? 2 : 1.25;
       ctx.setLineDash(group.species === 'grazer' ? [8, 6] : group.species === 'scavenger' ? [3, 5] : []);
       ctx.beginPath();
@@ -370,7 +377,7 @@ export class Renderer {
       ctx.setLineDash([]);
 
       if (group.route.length > 1) {
-        ctx.strokeStyle = `${group.color}78`;
+        ctx.strokeStyle = `${overlayColor}82`;
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
         ctx.beginPath();
@@ -387,13 +394,13 @@ export class Renderer {
       ctx.font = '700 11px Inter, system-ui, sans-serif';
       const width = ctx.measureText(label).width + 22;
       ctx.fillStyle = 'rgba(2,8,8,.82)';
-      ctx.strokeStyle = `${group.color}aa`;
+      ctx.strokeStyle = `${overlayColor}d0`;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.roundRect(point.x - width / 2, point.y - 16, width, 25, 12);
       ctx.fill();
       ctx.stroke();
-      ctx.fillStyle = group.color;
+      ctx.fillStyle = overlayColor;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(label, point.x, point.y - 3.5);

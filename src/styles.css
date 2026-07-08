@@ -876,3 +876,74 @@ body.documentary-mode .control-docks {
     right: 12px;
   }
 }
+
+/* v2.0.3 compact rails and unobstructed right-side controls */
+.left-rail {
+  width: 220px;
+}
+
+.right-rail {
+  width: 260px;
+}
+
+.rail-grid {
+  gap: 7px;
+}
+
+.rail-grid button {
+  min-height: 36px;
+  padding: 7px 7px;
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.rail-heading {
+  margin-bottom: 8px;
+}
+
+.rail-heading p {
+  font-size: 10px;
+}
+
+.stewardship {
+  top: 360px;
+  width: 260px;
+  max-height: calc(100vh - 376px);
+}
+
+.open-tools {
+  top: 360px;
+}
+
+@media (max-width: 1260px) {
+  .left-rail { width: 208px; }
+  .right-rail,
+  .stewardship { width: 248px; }
+  .stewardship,
+  .open-tools { top: 352px; }
+  .stewardship { max-height: calc(100vh - 368px); }
+}
+
+@media (max-width: 980px) {
+  .left-rail,
+  .right-rail { width: min(46vw, 232px); }
+  .stewardship {
+    top: 342px;
+    width: min(42vw, 248px);
+    max-height: calc(100vh - 358px);
+  }
+  .open-tools { top: 342px; }
+}
+
+@media (max-width: 760px) {
+  .left-rail,
+  .right-rail,
+  .stewardship {
+    width: auto;
+  }
+  .stewardship {
+    top: 330px;
+    max-height: calc(100vh - 346px);
+  }
+  .open-tools { top: 330px; }
+}
