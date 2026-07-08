@@ -1,4 +1,4 @@
-import type { PlanetState, ViewMode } from '../world/types';
+import type { PlacementTool, PlanetState, ViewMode } from '../world/types';
 
 const WORLD_WIDTH = 180;
 const WORLD_HEIGHT = 110;
@@ -21,12 +21,39 @@ const speciesColors: Record<string, string[]> = {
   scavenger: ['#d7d0c0', '#c9bda8', '#b9c8d5', '#eee4c6', '#bcb3a1', '#d4cbb8'],
 };
 
+const toolColors: Record<PlacementTool, string> = {
+  observe: '#dce8e2',
+  plants: '#75c86b',
+  grazers: '#f1dd72',
+  predators: '#f16363',
+  scavengers: '#d5eef2',
+  fungi: '#bd7cf0',
+  rain: '#69bfff',
+  drought: '#e4a45d',
+  fertility: '#c6dd68',
+  wildfire: '#ff754d',
+};
+
+const toolLabels: Record<PlacementTool, string> = {
+  observe: 'Observe',
+  plants: 'Plant growth',
+  grazers: 'Grazer herd',
+  predators: 'Predator pack',
+  scavengers: 'Scavengers',
+  fungi: 'Fungal colony',
+  rain: 'Rain front',
+  drought: 'Drought',
+  fertility: 'Fertile soil',
+  wildfire: 'Wildfire',
+};
+
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private dpr = 1;
   camera = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, zoom: 7 };
   view: ViewMode = 'natural';
   showLabels = true;
+  brush = { tool: 'observe' as PlacementTool, x: 0, y: 0, radius: 8, visible: false };
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
@@ -53,6 +80,13 @@ export class Renderer {
     return {
       x: (x - this.camera.x) * this.camera.zoom + innerWidth / 2,
       y: (y - this.camera.y) * this.camera.zoom + innerHeight / 2,
+    };
+  }
+
+  worldFromScreen(x: number, y: number): { x: number; y: number } {
+    return {
+      x: (x - innerWidth / 2) / this.camera.zoom + this.camera.x,
+      y: (y - innerHeight / 2) / this.camera.zoom + this.camera.y,
     };
   }
 
@@ -83,6 +117,41 @@ export class Renderer {
       ctx.fillText(region.name.toUpperCase(), point.x, point.y + 0.5);
       ctx.shadowBlur = 0;
     }
+    ctx.restore();
+  }
+
+  private drawBrush(): void {
+    if (!this.brush.visible || this.brush.tool === 'observe') return;
+    const point = this.screen(this.brush.x, this.brush.y);
+    const radius = this.brush.radius * this.camera.zoom;
+    const color = toolColors[this.brush.tool];
+    const ctx = this.ctx;
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = `${color}22`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([7, 5]);
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.font = '650 11px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    const label = toolLabels[this.brush.tool];
+    const width = ctx.measureText(label).width + 20;
+    const labelY = point.y - radius - 20;
+    ctx.fillStyle = 'rgba(2,9,9,.82)';
+    ctx.strokeStyle = `${color}88`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(point.x - width / 2, labelY - 11, width, 22, 11);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.fillText(label, point.x, labelY + 0.5);
     ctx.restore();
   }
 
@@ -146,8 +215,9 @@ export class Renderer {
     }
 
     this.drawRegionLabels(state);
+    this.drawBrush();
 
-    ctx.fillStyle = 'rgba(255,255,255,.06)';
+    ctx.fillStyle = 'rgba(255,255,255,.045)';
     ctx.fillRect(0, 0, innerWidth, innerHeight);
   }
 }

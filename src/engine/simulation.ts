@@ -1,10 +1,11 @@
 import { RNG } from '../world/random';
 import { generateTiles } from '../world/generator';
 import { generateRegions, nearestRegion } from '../world/regions';
-import type { Entity, PlanetState, Region, Species, Tile } from '../world/types';
+import type { Entity, PlacementTool, PlanetState, Region, Species, Tile } from '../world/types';
 
 const W = 180;
 const H = 110;
+const MAX_ENTITIES = 2600;
 let nextId = 1;
 
 function idx(x: number, y: number): number {
@@ -23,7 +24,7 @@ function entity(species: Species, x: number, y: number, rng: RNG): Entity {
     y,
     vx: rng.range(-0.25, 0.25),
     vy: rng.range(-0.25, 0.25),
-    energy: species === 'predator' ? 90 : species === 'grazer' ? 70 : 40,
+    energy: species === 'predator' ? 90 : species === 'grazer' ? 70 : species === 'scavenger' ? 58 : 40,
     age: 0,
     breed: rng.int(0, 5),
     cooldown: 0,
@@ -32,6 +33,10 @@ function entity(species: Species, x: number, y: number, rng: RNG): Entity {
 
 function isLand(tile: Tile): boolean {
   return tile.biome !== 'ocean' && tile.biome !== 'rock' && tile.biome !== 'snow';
+}
+
+function cap(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 export class Simulation {
@@ -64,6 +69,29 @@ export class Simulation {
     return this.rng.pick(this.state.regions);
   }
 
+  regionAt(x: number, y: number): Region {
+    return nearestRegion(this.state.regions, x, y);
+  }
+
+  tileAt(x: number, y: number): Tile {
+    return this.state.tiles[idx(x, y)];
+  }
+
+  isLandAt(x: number, y: number): boolean {
+    return isLand(this.tileAt(x, y));
+  }
+
+  localCounts(x: number, y: number, radius = 8): Record<Species, number> {
+    const result: Record<Species, number> = { plant: 0, grazer: 0, predator: 0, scavenger: 0, fungi: 0, carrion: 0 };
+    const radiusSquared = radius * radius;
+    for (const current of this.state.entities) {
+      const dx = current.x - x;
+      const dy = current.y - y;
+      if (dx * dx + dy * dy <= radiusSquared) result[current.species] += 1;
+    }
+    return result;
+  }
+
   private landPoint(): { x: number; y: number } {
     for (let i = 0; i < 500; i += 1) {
       const x = this.rng.int(5, W - 6);
@@ -73,39 +101,49 @@ export class Simulation {
     return { x: W / 2, y: H / 2 };
   }
 
-  private pointNear(region: Region, radius = 12): { x: number; y: number } {
-    for (let i = 0; i < 300; i += 1) {
+  private pointNearXY(x: number, y: number, radius = 12, requireLand = true): { x: number; y: number } | undefined {
+    for (let i = 0; i < 180; i += 1) {
       const angle = this.rng.range(0, Math.PI * 2);
       const distance = Math.sqrt(this.rng.next()) * radius;
-      const x = Math.max(2, Math.min(W - 3, region.x + Math.cos(angle) * distance));
-      const y = Math.max(2, Math.min(H - 3, region.y + Math.sin(angle) * distance));
-      if (isLand(this.state.tiles[idx(x, y)])) return { x, y };
+      const px = cap(x + Math.cos(angle) * distance, 1, W - 2);
+      const py = cap(y + Math.sin(angle) * distance, 1, H - 2);
+      if (!requireLand || isLand(this.state.tiles[idx(px, py)])) return { x: px, y: py };
     }
-    return this.landPoint();
+    return requireLand && this.isLandAt(x, y) ? { x, y } : undefined;
   }
 
-  private affectRegion(region: Region, radius: number, effect: (tile: Tile) => void): void {
-    const minX = Math.max(0, Math.floor(region.x - radius));
-    const maxX = Math.min(W - 1, Math.ceil(region.x + radius));
-    const minY = Math.max(0, Math.floor(region.y - radius));
-    const maxY = Math.min(H - 1, Math.ceil(region.y + radius));
-    for (let y = minY; y <= maxY; y += 1) {
-      for (let x = minX; x <= maxX; x += 1) {
-        const distance = Math.hypot(x - region.x, y - region.y);
+  private pointNear(region: Region, radius = 12): { x: number; y: number } {
+    return this.pointNearXY(region.x, region.y, radius, true) ?? this.landPoint();
+  }
+
+  private affectCircle(x: number, y: number, radius: number, effect: (tile: Tile, strength: number) => void): void {
+    const minX = Math.max(0, Math.floor(x - radius));
+    const maxX = Math.min(W - 1, Math.ceil(x + radius));
+    const minY = Math.max(0, Math.floor(y - radius));
+    const maxY = Math.min(H - 1, Math.ceil(y + radius));
+    for (let py = minY; py <= maxY; py += 1) {
+      for (let px = minX; px <= maxX; px += 1) {
+        const distance = Math.hypot(px - x, py - y);
         if (distance > radius) continue;
-        const strength = 1 - distance / radius;
-        effect(this.state.tiles[x + y * W]);
-        // Soften the edge by partially restoring the original effect strength.
-        if (strength < 0.35 && this.rng.next() > strength * 2) continue;
+        const strength = 1 - distance / Math.max(1, radius);
+        effect(this.state.tiles[px + py * W], strength);
       }
     }
   }
 
-  private seedCluster(species: Species, count: number, region: Region, radius = 10): void {
-    for (let i = 0; i < count; i += 1) {
-      const point = this.pointNear(region, radius);
+  private seedClusterAt(species: Species, count: number, x: number, y: number, radius = 10): number {
+    let placed = 0;
+    for (let i = 0; i < count && this.state.entities.length < MAX_ENTITIES; i += 1) {
+      const point = this.pointNearXY(x, y, radius, true);
+      if (!point) continue;
       this.state.entities.push(entity(species, point.x, point.y, this.rng));
+      placed += 1;
     }
+    return placed;
+  }
+
+  private seedCluster(species: Species, count: number, region: Region, radius = 10): void {
+    this.seedClusterAt(species, count, region.x, region.y, radius);
   }
 
   seedLife(): void {
@@ -142,42 +180,111 @@ export class Simulation {
     this.state.notes = this.state.notes.slice(0, 8);
   }
 
-  intervene(kind: string): void {
-    if (kind === 'rain') {
-      const region = this.region('east');
-      this.affectRegion(region, 24, (tile) => {
-        tile.moisture = Math.min(1, tile.moisture + 0.24);
-        tile.fertility = Math.min(1, tile.fertility + 0.05);
-      });
-      this.note(`A rainstorm settles over the ${region.name}. Low ground darkens and new vegetation brightens along the waterline.`, region.id);
+  interveneAt(kind: PlacementTool, x: number, y: number, radius = 8, announce = true): boolean {
+    x = cap(x, 1, W - 2);
+    y = cap(y, 1, H - 2);
+    radius = cap(radius, 2, 22);
+    const region = this.regionAt(x, y);
+    let changed = false;
+
+    if (kind === 'observe') return false;
+
+    if (kind === 'plants') {
+      const placed = this.seedClusterAt('plant', Math.round(radius * 12), x, y, radius);
+      changed = placed > 0;
+      if (announce && changed) this.note(`Fresh vegetation has been established in the ${region.name}. Whether it persists will depend on moisture, grazing and soil.`, region.id);
     }
-    if (kind === 'drought') {
-      const region = this.region('central');
-      this.affectRegion(region, 28, (tile) => {
-        tile.moisture = Math.max(0, tile.moisture - 0.28);
-      });
-      this.note(`A dry spell grips the ${region.name}. Grazers begin to search beyond their familiar feeding grounds.`, region.id);
+    if (kind === 'grazers') {
+      const placed = this.seedClusterAt('grazer', Math.round(cap(radius * 1.35, 5, 30)), x, y, radius * 0.7);
+      changed = placed > 0;
+      if (announce && changed) this.note(`A new grazing herd has entered the ${region.name}. Its arrival will immediately test local food reserves.`, region.id);
     }
-    if (kind === 'forest') {
-      const region = this.region('north');
-      this.seedCluster('plant', 260, region, 17);
-      this.note(`New forest growth spreads through the ${region.name}, creating shelter and breaking up the open ground.`, region.id);
+    if (kind === 'predators') {
+      const placed = this.seedClusterAt('predator', Math.round(cap(radius * 0.25, 1, 7)), x, y, radius * 0.65);
+      changed = placed > 0;
+      if (announce && changed) this.note(`A predator lineage has been introduced into the ${region.name}. The surrounding herds now face a new pressure.`, region.id);
     }
-    if (kind === 'herd') {
-      const region = this.region('central');
-      this.seedCluster('grazer', 35, region, 14);
-      this.note(`A migrating herd enters the ${region.name}, testing the carrying capacity of its grasslands.`, region.id);
-    }
-    if (kind === 'wolves') {
-      const region = this.region('north');
-      this.seedCluster('predator', 6, region, 12);
-      this.note(`A small predator lineage appears along the ${region.name}. Its success will depend on cover, prey and restraint.`, region.id);
+    if (kind === 'scavengers') {
+      const placed = this.seedClusterAt('scavenger', Math.round(cap(radius * 0.5, 2, 12)), x, y, radius * 0.8);
+      changed = placed > 0;
+      if (announce && changed) this.note(`Scavengers circle into the ${region.name}, ready to shorten the path from death back to fertile soil.`, region.id);
     }
     if (kind === 'fungi') {
-      const region = this.region('west');
-      this.seedCluster('fungi', 120, region, 16);
-      this.note(`Fungal threads bloom beneath the ${region.name}, preparing dead matter for its return to the soil.`, region.id);
+      const placed = this.seedClusterAt('fungi', Math.round(radius * 7), x, y, radius);
+      changed = placed > 0;
+      if (announce && changed) this.note(`A fungal colony has taken hold beneath the ${region.name}, quietly expanding the planet's decomposer network.`, region.id);
     }
+    if (kind === 'rain') {
+      this.affectCircle(x, y, radius, (tile, strength) => {
+        tile.moisture = cap(tile.moisture + 0.32 * strength, 0, 1);
+        tile.fertility = cap(tile.fertility + 0.045 * strength, 0, 1);
+      });
+      changed = true;
+      if (announce) this.note(`A local rain front crosses the ${region.name}. Dry ground darkens and life gathers around the renewed moisture.`, region.id);
+    }
+    if (kind === 'drought') {
+      this.affectCircle(x, y, radius, (tile, strength) => {
+        tile.moisture = cap(tile.moisture - 0.38 * strength, 0, 1);
+        tile.heat = cap(tile.heat + 0.06 * strength, 0, 1);
+      });
+      changed = true;
+      if (announce) this.note(`A pocket of drought settles over the ${region.name}. The first response will be movement, followed by hunger if the dry spell holds.`, region.id);
+    }
+    if (kind === 'fertility') {
+      this.affectCircle(x, y, radius, (tile, strength) => {
+        tile.fertility = cap(tile.fertility + 0.42 * strength, 0, 1);
+      });
+      changed = true;
+      if (announce) this.note(`Mineral-rich soil has appeared in the ${region.name}. Plants now have an opportunity to turn that stored potential into biomass.`, region.id);
+    }
+    if (kind === 'wildfire') {
+      const radiusSquared = radius * radius;
+      const survivors: Entity[] = [];
+      let burned = 0;
+      for (const current of this.state.entities) {
+        const dx = current.x - x;
+        const dy = current.y - y;
+        const inside = dx * dx + dy * dy <= radiusSquared;
+        const vulnerable = current.species === 'plant' || current.species === 'fungi';
+        const animalRisk = current.species === 'grazer' || current.species === 'predator' || current.species === 'scavenger';
+        if (inside && vulnerable && this.rng.next() < 0.82) {
+          burned += 1;
+          continue;
+        }
+        if (inside && animalRisk && this.rng.next() < 0.08) {
+          survivors.push(entity('carrion', current.x, current.y, this.rng));
+          burned += 1;
+          continue;
+        }
+        survivors.push(current);
+      }
+      this.state.entities = survivors;
+      this.affectCircle(x, y, radius, (tile, strength) => {
+        tile.moisture = cap(tile.moisture - 0.26 * strength, 0, 1);
+        tile.fertility = cap(tile.fertility + 0.12 * strength, 0, 1);
+        tile.pressure = cap(tile.pressure + 0.18 * strength, 0, 1);
+      });
+      changed = burned > 0;
+      if (announce) this.note(`Fire has crossed the ${region.name}, removing old growth and leaving a warmer, nutrient-rich scar for succession to begin.`, region.id);
+    }
+
+    return changed;
+  }
+
+  // Preserved for simple scripted interventions and future story events.
+  intervene(kind: string): void {
+    const map: Record<string, { tool: PlacementTool; region: string; radius: number }> = {
+      rain: { tool: 'rain', region: 'east', radius: 24 },
+      drought: { tool: 'drought', region: 'central', radius: 28 },
+      forest: { tool: 'plants', region: 'north', radius: 17 },
+      herd: { tool: 'grazers', region: 'central', radius: 14 },
+      wolves: { tool: 'predators', region: 'north', radius: 12 },
+      fungi: { tool: 'fungi', region: 'west', radius: 16 },
+    };
+    const choice = map[kind];
+    if (!choice) return;
+    const region = this.region(choice.region);
+    this.interveneAt(choice.tool, region.x, region.y, choice.radius, true);
   }
 
   step(): void {
@@ -187,8 +294,8 @@ export class Simulation {
     for (const tile of this.state.tiles) {
       tile.pressure *= 0.96;
       const seasonal = Math.sin(this.state.season * Math.PI * 2);
-      tile.moisture = Math.max(0, Math.min(1, tile.moisture + seasonal * 0.0008 - 0.0003));
-      tile.fertility = Math.max(0, Math.min(1, tile.fertility + 0.0002));
+      tile.moisture = cap(tile.moisture + seasonal * 0.0008 - 0.0003, 0, 1);
+      tile.fertility = cap(tile.fertility + 0.0002, 0, 1);
     }
 
     const entities = this.state.entities;
@@ -199,7 +306,7 @@ export class Simulation {
 
       if (current.species === 'plant') {
         current.energy += tile.moisture * 0.035 + tile.fertility * 0.025 - 0.018;
-        if (current.energy > 75 && entities.length < 2200 && this.rng.next() < 0.015) {
+        if (current.energy > 75 && entities.length < MAX_ENTITIES && this.rng.next() < 0.015) {
           const nx = current.x + this.rng.range(-3, 3);
           const ny = current.y + this.rng.range(-3, 3);
           if (isLand(this.state.tiles[idx(nx, ny)])) {
@@ -216,11 +323,13 @@ export class Simulation {
           carrion.energy -= 0.9;
           tile.fertility = Math.min(1, tile.fertility + 0.006);
         }
-        if (current.energy > 60 && entities.length < 2200 && this.rng.next() < 0.006) {
+        if (current.energy > 60 && entities.length < MAX_ENTITIES && this.rng.next() < 0.006) {
           const nx = current.x + this.rng.range(-2, 2);
           const ny = current.y + this.rng.range(-2, 2);
-          entities.push(entity('fungi', nx, ny, this.rng));
-          current.energy *= 0.72;
+          if (isLand(this.state.tiles[idx(nx, ny)])) {
+            entities.push(entity('fungi', nx, ny, this.rng));
+            current.energy *= 0.72;
+          }
         }
       } else if (current.species === 'carrion') {
         current.energy -= 0.22;
@@ -264,10 +373,10 @@ export class Simulation {
           current.y += current.vy * 2;
           current.energy -= 0.35;
         }
-        current.x = Math.max(1, Math.min(W - 2, current.x));
-        current.y = Math.max(1, Math.min(H - 2, current.y));
+        current.x = cap(current.x, 1, W - 2);
+        current.y = cap(current.y, 1, H - 2);
         const reproductionThreshold = current.species === 'predator' ? 180 : current.species === 'scavenger' ? 120 : 95;
-        if (current.energy > reproductionThreshold && current.cooldown === 0 && entities.length < 2200) {
+        if (current.energy > reproductionThreshold && current.cooldown === 0 && entities.length < MAX_ENTITIES) {
           entities.push(entity(current.species, current.x + this.rng.range(-1, 1), current.y + this.rng.range(-1, 1), this.rng));
           current.energy *= 0.52;
           current.cooldown = 120;
@@ -280,7 +389,7 @@ export class Simulation {
       if (current.energy > 0 && current.age < 2800) survivors.push(current);
       else if (current.species !== 'plant' && current.species !== 'carrion') survivors.push(entity('carrion', current.x, current.y, this.rng));
     }
-    this.state.entities = survivors.slice(0, 2400);
+    this.state.entities = survivors.slice(0, MAX_ENTITIES);
 
     if (this.state.day % 90 === 0) {
       const counts = this.counts();

@@ -1,6 +1,17 @@
 export type Biome = 'ocean' | 'shore' | 'grass' | 'forest' | 'rock' | 'snow';
 export type Species = 'plant' | 'grazer' | 'predator' | 'scavenger' | 'fungi' | 'carrion';
 export type ViewMode = 'natural' | 'moisture' | 'soil' | 'life' | 'pressure';
+export type PlacementTool =
+  | 'observe'
+  | 'plants'
+  | 'grazers'
+  | 'predators'
+  | 'scavengers'
+  | 'fungi'
+  | 'rain'
+  | 'drought'
+  | 'fertility'
+  | 'wildfire';
 
 export interface Tile {
   elevation: number;
