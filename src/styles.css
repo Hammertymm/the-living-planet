@@ -451,3 +451,114 @@ input[type="range"] {
   .naturalist { font-size: 12px; }
   .chronicle, .wildlife { left: 12px; right: 12px; width: auto; max-height: 48vh; }
 }
+
+/* v0.9 climate and documentary additions */
+.climate-summary {
+  display: grid;
+  gap: 6px;
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(255,255,255,.09);
+}
+.climate-summary div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #8ea49c;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.climate-summary strong {
+  color: #dceae4;
+  font-size: 10px;
+  text-align: right;
+  letter-spacing: .02em;
+  text-transform: none;
+}
+
+.chronicle-entry.importance-2 {
+  border-left-color: rgba(216,196,118,.72);
+}
+.chronicle-entry.importance-3 {
+  border-left: 3px solid rgba(240,112,73,.88);
+  background: rgba(179,74,44,.09);
+}
+
+.documentary-dock {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 20;
+  display: none;
+  gap: 8px;
+  pointer-events: auto;
+}
+.documentary-dock button {
+  padding: 9px 12px;
+  border-radius: 14px;
+  background: rgba(3,8,8,.58);
+  backdrop-filter: blur(12px);
+}
+
+body.documentary-mode .metrics,
+body.documentary-mode .viewbar,
+body.documentary-mode .stewardship,
+body.documentary-mode .open-tools,
+body.documentary-mode .chronicle,
+body.documentary-mode .wildlife,
+body.documentary-mode .help {
+  opacity: 0;
+  pointer-events: none;
+}
+body.documentary-mode .documentary-dock {
+  display: flex;
+}
+body.documentary-mode .topbar {
+  justify-content: center;
+}
+body.documentary-mode .brand {
+  max-width: none;
+  padding: 10px 16px;
+  background: rgba(3,8,8,.42);
+  border-color: rgba(255,255,255,.06);
+  text-align: center;
+}
+body.documentary-mode .brand p {
+  display: none;
+}
+body.documentary-mode .brand h1 {
+  font-size: 14px;
+  letter-spacing: .24em;
+}
+body.documentary-mode .naturalist {
+  left: 50%;
+  bottom: 22px;
+  width: min(620px, calc(100vw - 40px));
+  transform: translateX(-50%);
+  padding: 16px 18px;
+  background: linear-gradient(180deg, rgba(3,8,8,.42), rgba(3,8,8,.68));
+  border-color: rgba(255,255,255,.07);
+  text-align: center;
+}
+body.documentary-mode .naturalist h2 {
+  opacity: .72;
+}
+body.documentary-mode .naturalist .note {
+  font-size: 15px;
+  line-height: 1.5;
+}
+body.documentary-mode canvas {
+  cursor: grab;
+}
+
+@media (max-width: 1020px) {
+  .viewbar { max-width: calc(100vw - 32px); overflow-x: auto; }
+  .viewbar button { white-space: nowrap; }
+}
+
+@media (max-width: 680px) {
+  .documentary-dock { top: auto; bottom: 126px; right: 12px; left: 12px; justify-content: center; }
+  body.documentary-mode .naturalist { bottom: 12px; }
+}

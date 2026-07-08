@@ -1,13 +1,21 @@
 # Changelog
 
-## 0.7.0 — Herds, Packs & World Memory
+## v0.9.0 — Climate, Seasons & Documentary
 
-- Added persistent named herds, predator packs and scavenger colonies.
-- Added group inheritance, cohesion, migration destinations, splitting and merging.
-- Added the Living Registry and Groups view.
-- Added migration routes and territory rendering.
-- Added long-lived animal trails and wildfire scars.
-- Added named dens, grazing grounds, crossings and burn landmarks.
-- Added the Memory view.
-- Added exact event coordinates to Chronicle navigation.
-- Preserved all v0.5 stewardship, camera, region and time-flow fundamentals.
+- Added moving rain, dry and storm fronts.
+- Added seasonal ecology and seasonal rendering.
+- Added prevailing wind and Climate view.
+- Added spreading active fire and lightning ignition.
+- Added Documentary mode.
+- Added optional, default-off Story follow camera direction.
+- Added climate summary inside Stewardship.
+- Increased Chronicle capacity and event importance levels.
+- Improved long-run population recovery.
+- Added Vite relative asset paths for more portable production builds.
+
+## v0.7.0 — Herds, Packs & World Memory
+
+- Added persistent named social groups.
+- Added migration routes, territories and group histories.
+- Added Living Registry, Groups view and Memory view.
+- Added landmarks, trails and persistent burn scars.

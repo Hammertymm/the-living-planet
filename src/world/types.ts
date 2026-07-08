@@ -1,7 +1,7 @@
 export type Biome = 'ocean' | 'shore' | 'grass' | 'forest' | 'rock' | 'snow';
 export type Species = 'plant' | 'grazer' | 'predator' | 'scavenger' | 'fungi' | 'carrion';
 export type SocialSpecies = 'grazer' | 'predator' | 'scavenger';
-export type ViewMode = 'natural' | 'moisture' | 'soil' | 'pressure' | 'memory' | 'groups';
+export type ViewMode = 'natural' | 'moisture' | 'soil' | 'pressure' | 'memory' | 'groups' | 'climate';
 export type PlacementTool =
   | 'observe'
   | 'plants'
@@ -13,6 +13,8 @@ export type PlacementTool =
   | 'drought'
   | 'fertility'
   | 'wildfire';
+export type ClimateFrontKind = 'rain' | 'dry' | 'storm';
+export type SeasonName = 'Spring' | 'Summer' | 'Autumn' | 'Winter';
 
 export interface Tile {
   elevation: number;
@@ -23,6 +25,7 @@ export interface Tile {
   pressure: number;
   trail: number;
   burn: number;
+  fire: number;
 }
 
 export interface Entity {
@@ -84,6 +87,20 @@ export interface Landmark {
   regionId: string;
 }
 
+export interface ClimateFront {
+  id: string;
+  kind: ClimateFrontKind;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  intensity: number;
+  age: number;
+  maxAge: number;
+  lastRegionId?: string;
+}
+
 export interface Note {
   day: number;
   text: string;
@@ -91,6 +108,7 @@ export interface Note {
   groupId?: string;
   focusX?: number;
   focusY?: number;
+  importance?: 1 | 2 | 3;
 }
 
 export interface PlanetState {
@@ -101,6 +119,10 @@ export interface PlanetState {
   regions: Region[];
   groups: SocialGroup[];
   landmarks: Landmark[];
+  climateFronts: ClimateFront[];
   season: number;
+  seasonName: SeasonName;
+  windX: number;
+  windY: number;
   seed: number;
 }

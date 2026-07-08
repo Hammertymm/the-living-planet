@@ -1,4 +1,4 @@
-import type { Landmark, PlacementTool, PlanetState, SocialGroup, ViewMode } from '../world/types';
+import type { ClimateFront, Landmark, PlacementTool, PlanetState, SocialGroup, Tile, ViewMode } from '../world/types';
 
 const WORLD_WIDTH = 180;
 const WORLD_HEIGHT = 110;
@@ -11,6 +11,26 @@ const biomeColors: Record<string, string> = {
   rock: '#555a5a',
   snow: '#c7d3d2',
 };
+
+type RGB = [number, number, number];
+
+const biomeRgb: Record<string, RGB> = {
+  ocean: [22, 61, 88],
+  shore: [136, 118, 86],
+  grass: [57, 93, 53],
+  forest: [36, 75, 48],
+  rock: [85, 90, 90],
+  snow: [199, 211, 210],
+};
+
+function rgb(values: RGB): string {
+  return `rgb(${Math.round(values[0])},${Math.round(values[1])},${Math.round(values[2])})`;
+}
+
+function mix(a: RGB, b: RGB, amount: number): RGB {
+  const t = clamp(amount, 0, 1);
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+}
 
 const speciesColors: Record<string, string[]> = {
   plant: ['#66a95e'],
@@ -57,6 +77,7 @@ export class Renderer {
   camera = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, zoom: 7 };
   view: ViewMode = 'natural';
   showLabels = true;
+  private targetCamera: { x: number; y: number; zoom: number } | null = null;
   brush = { tool: 'observe' as PlacementTool, x: 0, y: 0, radius: 8, visible: false };
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -79,9 +100,34 @@ export class Renderer {
   }
 
   focus(x: number, y: number, zoom = this.camera.zoom): void {
+    this.targetCamera = null;
     this.camera.x = clamp(x, 0, WORLD_WIDTH);
     this.camera.y = clamp(y, 0, WORLD_HEIGHT);
     this.camera.zoom = clamp(zoom, 3, 18);
+  }
+
+  setCinematicTarget(x: number, y: number, zoom = 9): void {
+    this.targetCamera = {
+      x: clamp(x, 0, WORLD_WIDTH),
+      y: clamp(y, 0, WORLD_HEIGHT),
+      zoom: clamp(zoom, 3, 18),
+    };
+  }
+
+  cancelCinematic(): void {
+    this.targetCamera = null;
+  }
+
+  private updateCamera(): void {
+    if (!this.targetCamera) return;
+    const ease = 0.025;
+    this.camera.x += (this.targetCamera.x - this.camera.x) * ease;
+    this.camera.y += (this.targetCamera.y - this.camera.y) * ease;
+    this.camera.zoom += (this.targetCamera.zoom - this.camera.zoom) * ease;
+    if (
+      Math.hypot(this.targetCamera.x - this.camera.x, this.targetCamera.y - this.camera.y) < 0.06
+      && Math.abs(this.targetCamera.zoom - this.camera.zoom) < 0.03
+    ) this.targetCamera = null;
   }
 
   screen(x: number, y: number): { x: number; y: number } {
@@ -110,6 +156,93 @@ export class Renderer {
       count += 1;
     }
     return count > 0 ? { x: x / count, y: y / count } : { x: group.homeX, y: group.homeY };
+  }
+
+  private terrainColor(tile: Tile, state: PlanetState, x: number, y: number): string {
+    let color: RGB = [...biomeRgb[tile.biome]] as RGB;
+    if (tile.biome === 'ocean') {
+      const shimmer = (Math.sin(x * 0.31 + y * 0.19 + performance.now() * 0.0007) + 1) * 0.5;
+      color = mix(color, [32, 83, 111], 0.12 + shimmer * 0.08);
+      return rgb(color);
+    }
+    if (tile.biome === 'grass' || tile.biome === 'forest') {
+      const health = clamp(tile.moisture * 0.58 + tile.fertility * 0.42, 0, 1);
+      color = mix(color, [29, 54, 35], 0.34 * (1 - health));
+      if (state.seasonName === 'Summer') color = mix(color, [126, 111, 51], 0.22 + (1 - tile.moisture) * 0.25);
+      if (state.seasonName === 'Autumn') color = mix(color, [112, 76, 39], tile.biome === 'forest' ? 0.28 : 0.12);
+      if (state.seasonName === 'Winter') color = mix(color, [92, 105, 91], 0.28);
+      if (state.seasonName === 'Spring') color = mix(color, [72, 126, 63], 0.18 * health);
+    }
+    if (tile.biome === 'shore' && state.seasonName === 'Summer') color = mix(color, [160, 132, 76], 0.18);
+    return rgb(color);
+  }
+
+  private drawClimateFront(front: ClimateFront, view: ViewMode): void {
+    const point = this.screen(front.x, front.y);
+    const radius = front.radius * this.camera.zoom;
+    if (point.x < -radius || point.y < -radius || point.x > innerWidth + radius || point.y > innerHeight + radius) return;
+    const ctx = this.ctx;
+    const color = front.kind === 'rain' ? [92, 173, 218] : front.kind === 'storm' ? [153, 151, 202] : [220, 157, 83];
+    const alpha = view === 'climate' ? 0.34 : 0.085;
+    const gradient = ctx.createRadialGradient(point.x, point.y, radius * 0.08, point.x, point.y, radius);
+    gradient.addColorStop(0, `rgba(${color[0]},${color[1]},${color[2]},${alpha * front.intensity})`);
+    gradient.addColorStop(0.55, `rgba(${color[0]},${color[1]},${color[2]},${alpha * 0.55 * front.intensity})`);
+    gradient.addColorStop(1, `rgba(${color[0]},${color[1]},${color[2]},0)`);
+    ctx.save();
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    if (view === 'climate') {
+      ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},${0.65 * front.intensity})`;
+      ctx.lineWidth = 1.4;
+      ctx.setLineDash([7, 7]);
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, radius * 0.72, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(5,10,11,.72)';
+      ctx.font = '700 10px Inter, system-ui, sans-serif';
+      const label = front.kind === 'rain' ? 'RAIN FRONT' : front.kind === 'storm' ? 'STORM CELL' : 'DRY FRONT';
+      const width = ctx.measureText(label).width + 18;
+      ctx.beginPath();
+      ctx.roundRect(point.x - width / 2, point.y - 10, width, 20, 10);
+      ctx.fill();
+      ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, point.x, point.y + 0.5);
+    }
+    ctx.restore();
+  }
+
+  private drawClimate(state: PlanetState): void {
+    for (const front of state.climateFronts) this.drawClimateFront(front, this.view);
+    if (this.view !== 'climate') return;
+    const ctx = this.ctx;
+    const anchorX = 28;
+    const anchorY = innerHeight - 92;
+    const scale = 420;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(217,235,228,.68)';
+    ctx.fillStyle = 'rgba(217,235,228,.85)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(anchorX, anchorY);
+    ctx.lineTo(anchorX + state.windX * scale, anchorY + state.windY * scale);
+    ctx.stroke();
+    const angle = Math.atan2(state.windY, state.windX);
+    const endX = anchorX + state.windX * scale;
+    const endY = anchorY + state.windY * scale;
+    ctx.beginPath();
+    ctx.moveTo(endX, endY);
+    ctx.lineTo(endX - Math.cos(angle - 0.55) * 8, endY - Math.sin(angle - 0.55) * 8);
+    ctx.lineTo(endX - Math.cos(angle + 0.55) * 8, endY - Math.sin(angle + 0.55) * 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.font = '700 9px Inter, system-ui, sans-serif';
+    ctx.fillText('PREVAILING WIND', anchorX, anchorY - 12);
+    ctx.restore();
   }
 
   private drawRegionLabels(state: PlanetState): void {
@@ -304,6 +437,7 @@ export class Renderer {
   }
 
   render(state: PlanetState): void {
+    this.updateCamera();
     const ctx = this.ctx;
     ctx.clearRect(0, 0, innerWidth, innerHeight);
     ctx.fillStyle = '#07100f';
@@ -317,7 +451,7 @@ export class Renderer {
         const point = this.screen(x, y);
         if (point.x < -size || point.y < -size || point.x > innerWidth + size || point.y > innerHeight + size) continue;
 
-        let color = biomeColors[tile.biome];
+        let color = this.terrainColor(tile, state, x, y);
         if (this.view === 'moisture') color = `rgb(${20 + tile.moisture * 40},${45 + tile.moisture * 70},${65 + tile.moisture * 135})`;
         if (this.view === 'soil') color = `rgb(${45 + tile.fertility * 90},${38 + tile.fertility * 95},${25 + tile.fertility * 35})`;
         if (this.view === 'pressure') color = `rgb(${40 + tile.pressure * 160},${50 - tile.pressure * 20},${42 - tile.pressure * 10})`;
@@ -329,6 +463,11 @@ export class Renderer {
         if (this.view === 'groups') {
           const base = tile.biome === 'ocean' ? [18, 48, 68] : [38, 58, 45];
           color = `rgb(${base[0]},${base[1]},${base[2]})`;
+        }
+        if (this.view === 'climate') {
+          const wet = tile.moisture;
+          const heat = tile.heat;
+          color = `rgb(${38 + heat * 125},${52 + wet * 90},${64 + wet * 115 - heat * 34})`;
         }
         ctx.fillStyle = color;
         ctx.fillRect(point.x, point.y, size, size);
@@ -342,9 +481,16 @@ export class Renderer {
             ctx.fillStyle = `rgba(211,190,123,${Math.min(0.22, tile.trail * 0.25)})`;
             ctx.fillRect(point.x, point.y, size, size);
           }
+          if (tile.fire > 0.02) {
+            const flicker = 0.72 + Math.sin(performance.now() * 0.014 + x * 0.7 + y) * 0.18;
+            ctx.fillStyle = `rgba(255,103,42,${Math.min(0.82, tile.fire * flicker)})`;
+            ctx.fillRect(point.x, point.y, size, size);
+          }
         }
       }
     }
+
+    this.drawClimate(state);
 
     if (this.view === 'memory') {
       for (const landmark of state.landmarks) this.drawLandmark(landmark, state);
@@ -358,7 +504,8 @@ export class Renderer {
       if (current.species !== 'plant' && current.species !== 'fungi') continue;
       const point = this.screen(current.x, current.y);
       if (point.x < 0 || point.y < 0 || point.x > innerWidth || point.y > innerHeight) continue;
-      ctx.fillStyle = current.species === 'plant' ? '#75b76c' : '#9d69ce';
+      const plantColor = state.seasonName === 'Spring' ? '#83c878' : state.seasonName === 'Summer' ? '#a6ad65' : state.seasonName === 'Autumn' ? '#a17d4f' : '#748a70';
+      ctx.fillStyle = current.species === 'plant' ? plantColor : '#9d69ce';
       ctx.beginPath();
       ctx.arc(point.x, point.y, Math.max(1.6, zoom * 0.45), 0, Math.PI * 2);
       ctx.fill();
@@ -393,6 +540,15 @@ export class Renderer {
     this.drawRegionLabels(state);
     this.drawBrush();
 
+    const seasonTint = state.seasonName === 'Summer'
+      ? 'rgba(238,183,94,.025)'
+      : state.seasonName === 'Autumn'
+        ? 'rgba(201,111,61,.028)'
+        : state.seasonName === 'Winter'
+          ? 'rgba(137,177,194,.032)'
+          : 'rgba(119,207,140,.018)';
+    ctx.fillStyle = seasonTint;
+    ctx.fillRect(0, 0, innerWidth, innerHeight);
     ctx.fillStyle = 'rgba(255,255,255,.035)';
     ctx.fillRect(0, 0, innerWidth, innerHeight);
   }

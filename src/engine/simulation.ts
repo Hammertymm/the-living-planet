@@ -3,6 +3,8 @@ import { generateTiles } from '../world/generator';
 import { generateRegions, nearestRegion } from '../world/regions';
 import { groupCentroid, groupColor, groupName } from '../world/groups';
 import type {
+  ClimateFront,
+  ClimateFrontKind,
   Entity,
   LandmarkKind,
   PlacementTool,
@@ -11,6 +13,7 @@ import type {
   SocialGroup,
   SocialSpecies,
   Species,
+  SeasonName,
   Tile,
 } from '../world/types';
 
@@ -20,6 +23,7 @@ const MAX_ENTITIES = 2600;
 let nextId = 1;
 let nextGroupId = 1;
 let nextLandmarkId = 1;
+let nextClimateFrontId = 1;
 
 function idx(x: number, y: number): number {
   return Math.max(0, Math.min(W - 1, Math.floor(x))) + Math.max(0, Math.min(H - 1, Math.floor(y))) * W;
@@ -92,11 +96,16 @@ export class Simulation {
       regions: generateRegions(tiles, W, H),
       groups: [],
       landmarks: [],
+      climateFronts: [],
       season: 0,
+      seasonName: 'Spring',
+      windX: 0.035,
+      windY: 0.008,
       seed,
     };
     this.seedLife();
-    this.note('A young planet settles into motion. Its first herds and hunting lineages begin to make places into territories.', 'central');
+    this.seedClimate();
+    this.note('A young planet settles into motion. Its first herds and hunting lineages begin to make places into territories.', 'central', undefined, undefined, undefined, 2);
   }
 
   private region(id: string): Region {
@@ -283,9 +292,188 @@ export class Simulation {
     return counts;
   }
 
-  note(text: string, regionId?: string, groupId?: string, focusX?: number, focusY?: number): void {
-    this.state.notes.unshift({ day: this.state.day, text, regionId, groupId, focusX, focusY });
-    this.state.notes = this.state.notes.slice(0, 12);
+  note(
+    text: string,
+    regionId?: string,
+    groupId?: string,
+    focusX?: number,
+    focusY?: number,
+    importance: 1 | 2 | 3 = 1,
+  ): void {
+    this.state.notes.unshift({ day: this.state.day, text, regionId, groupId, focusX, focusY, importance });
+    this.state.notes = this.state.notes.slice(0, 16);
+  }
+
+  private seasonFor(value: number): SeasonName {
+    if (value < 0.25) return 'Spring';
+    if (value < 0.5) return 'Summer';
+    if (value < 0.75) return 'Autumn';
+    return 'Winter';
+  }
+
+  private createClimateFront(
+    kind: ClimateFrontKind,
+    x: number,
+    y: number,
+    radius = 16,
+    intensity = 0.7,
+    announce = false,
+  ): ClimateFront {
+    const seasonalAngle = this.state.season * Math.PI * 2;
+    const baseSpeed = kind === 'storm' ? 0.16 : 0.1;
+    const front: ClimateFront = {
+      id: `front-${nextClimateFrontId++}`,
+      kind,
+      x,
+      y,
+      vx: Math.cos(seasonalAngle * 0.45 + this.rng.range(-0.6, 0.6)) * baseSpeed + 0.05,
+      vy: Math.sin(seasonalAngle * 0.65 + this.rng.range(-0.7, 0.7)) * baseSpeed,
+      radius: cap(radius, 7, 28),
+      intensity: cap(intensity, 0.25, 1),
+      age: 0,
+      maxAge: this.rng.int(420, 760),
+    };
+    this.state.climateFronts.push(front);
+    if (announce) {
+      const region = this.regionAt(x, y);
+      const phrase = kind === 'rain'
+        ? `A sustained rain front begins crossing the ${region.name}. Its path will remain visible in the response of soil and vegetation.`
+        : kind === 'storm'
+          ? `A storm cell forms over the ${region.name}. Heavy rain and lightning now travel together.`
+          : `A dry air mass settles over the ${region.name}, drawing moisture from soil as it moves.`;
+      this.note(phrase, region.id, undefined, x, y, kind === 'storm' ? 2 : 1);
+    }
+    return front;
+  }
+
+  private seedClimate(): void {
+    this.createClimateFront('rain', 18, 28, 18, 0.65, false);
+    this.createClimateFront('dry', 155, 72, 20, 0.48, false);
+    this.createClimateFront('rain', 68, 8, 13, 0.52, false);
+  }
+
+  private ignite(x: number, y: number, radius = 4, announce = true): void {
+    const region = this.regionAt(x, y);
+    this.affectCircle(x, y, radius, (tile, strength) => {
+      if (tile.biome === 'ocean' || tile.biome === 'rock' || tile.biome === 'snow') return;
+      tile.fire = cap(tile.fire + 0.92 * strength, 0, 1);
+      tile.burn = cap(tile.burn + 0.45 * strength, 0, 1);
+      tile.moisture = cap(tile.moisture - 0.18 * strength, 0, 1);
+    });
+    this.addLandmark('burn-scar', `The ${region.name} burn`, x, y, region, 1);
+    if (announce) this.note(`Lightning has ignited dry growth in the ${region.name}. Wind now determines whether the fire fades or becomes a landscape event.`, region.id, undefined, x, y, 3);
+  }
+
+  private updateClimate(): void {
+    const angle = this.state.season * Math.PI * 2;
+    this.state.windX = Math.cos(angle * 0.72 + this.state.seed * 0.001) * 0.045 + Math.sin(this.state.day / 240) * 0.018;
+    this.state.windY = Math.sin(angle * 0.88 + this.state.seed * 0.0007) * 0.032 + Math.cos(this.state.day / 310) * 0.012;
+
+    if (this.state.day % 150 === 1 && this.state.climateFronts.length < 5) {
+      const summerBias = this.state.seasonName === 'Summer';
+      const winterBias = this.state.seasonName === 'Winter';
+      const roll = this.rng.next();
+      const kind: ClimateFrontKind = roll < (summerBias ? 0.47 : 0.24)
+        ? 'dry'
+        : roll > (winterBias ? 0.74 : 0.88)
+          ? 'storm'
+          : 'rain';
+      const fromWest = this.rng.next() < 0.68;
+      const x = fromWest ? -18 : W + 18;
+      const y = this.rng.range(8, H - 8);
+      const front = this.createClimateFront(kind, x, y, this.rng.range(12, 23), this.rng.range(0.45, 0.9), false);
+      front.vx = fromWest ? Math.abs(front.vx) + 0.05 : -Math.abs(front.vx) - 0.05;
+    }
+
+    for (const front of this.state.climateFronts) {
+      front.age += 1;
+      front.x += front.vx + this.state.windX * 0.45;
+      front.y += front.vy + this.state.windY * 0.45;
+      front.vx = cap(front.vx + this.rng.range(-0.0025, 0.0025), -0.22, 0.22);
+      front.vy = cap(front.vy + this.rng.range(-0.002, 0.002), -0.15, 0.15);
+
+      if (front.x >= 0 && front.x < W && front.y >= 0 && front.y < H) {
+        this.affectCircle(front.x, front.y, front.radius, (tile, strength) => {
+          const force = strength * front.intensity;
+          if (front.kind === 'dry') {
+            tile.moisture = cap(tile.moisture - 0.0026 * force, 0, 1);
+            tile.heat = cap(tile.heat + 0.0008 * force, 0, 1);
+          } else {
+            tile.moisture = cap(tile.moisture + (front.kind === 'storm' ? 0.0048 : 0.0029) * force, 0, 1);
+            tile.fertility = cap(tile.fertility + 0.00035 * force, 0, 1);
+            tile.heat = cap(tile.heat - 0.00035 * force, 0, 1);
+          }
+        });
+
+        const region = this.regionAt(front.x, front.y);
+        if (region.id !== front.lastRegionId && front.age > 35) {
+          front.lastRegionId = region.id;
+          if (this.rng.next() < 0.42) {
+            const phrase = front.kind === 'dry'
+              ? `A dry front is moving through the ${region.name}. Water-dependent groups are beginning to reconsider their routes.`
+              : front.kind === 'storm'
+                ? `A storm front reaches the ${region.name}, renewing wetlands while exposing dry high ground to lightning.`
+                : `Rain is now crossing the ${region.name}, favouring fresh plant growth along its path.`;
+            this.note(phrase, region.id, undefined, front.x, front.y, front.kind === 'storm' ? 2 : 1);
+          }
+        }
+
+        if (front.kind === 'storm' && this.state.day % 7 === 0 && this.rng.next() < 0.013 * front.intensity) {
+          const strikeX = cap(front.x + this.rng.range(-front.radius * 0.65, front.radius * 0.65), 2, W - 3);
+          const strikeY = cap(front.y + this.rng.range(-front.radius * 0.65, front.radius * 0.65), 2, H - 3);
+          const tile = this.tileAt(strikeX, strikeY);
+          if (isLand(tile) && tile.moisture < 0.42) this.ignite(strikeX, strikeY, this.rng.range(3, 6), true);
+        }
+      }
+    }
+
+    this.state.climateFronts = this.state.climateFronts.filter((front) => (
+      front.age < front.maxAge
+      && front.x > -45
+      && front.x < W + 45
+      && front.y > -40
+      && front.y < H + 40
+    ));
+  }
+
+  private updateFire(): void {
+    const active: number[] = [];
+    for (let index = 0; index < this.state.tiles.length; index += 1) {
+      const tile = this.state.tiles[index];
+      if (tile.fire <= 0.01) {
+        tile.fire = 0;
+        continue;
+      }
+      active.push(index);
+      tile.moisture = cap(tile.moisture - tile.fire * 0.0055, 0, 1);
+      tile.fertility = cap(tile.fertility + tile.fire * 0.00055, 0, 1);
+      tile.burn = cap(Math.max(tile.burn, tile.fire * 0.9), 0, 1);
+      tile.fire *= tile.moisture > 0.58 ? 0.83 : 0.925;
+    }
+
+    if (this.state.day % 3 !== 0 || active.length === 0) return;
+    const samples = active.length > 180 ? active.filter((_, index) => index % Math.ceil(active.length / 180) === 0) : active;
+    for (const index of samples) {
+      const source = this.state.tiles[index];
+      if (source.fire < 0.18) continue;
+      const x = index % W;
+      const y = Math.floor(index / W);
+      const windStepX = this.state.windX >= 0 ? 1 : -1;
+      const windStepY = this.state.windY >= 0 ? 1 : -1;
+      const options = [
+        [windStepX, 0],
+        [windStepX, windStepY],
+        [0, windStepY],
+        [this.rng.pick([-1, 1]), this.rng.pick([-1, 1])],
+      ];
+      const [dx, dy] = this.rng.pick(options);
+      const nx = cap(x + dx, 0, W - 1);
+      const ny = cap(y + dy, 0, H - 1);
+      const target = this.state.tiles[idx(nx, ny)];
+      if (!isLand(target) || target.moisture > 0.7) continue;
+      const chance = source.fire * (1 - target.moisture) * 0.34;
+      if (this.rng.next() < chance) target.fire = cap(target.fire + source.fire * 0.52, 0, 1);
+    }
   }
 
   private groupPositions(): Map<number, { x: number; y: number }> {
@@ -456,7 +644,10 @@ export class Simulation {
         tile.fertility = cap(tile.fertility + 0.045 * strength, 0, 1);
       });
       changed = true;
-      if (announce) this.note(`A local rain front crosses the ${region.name}. Dry ground darkens and life gathers around the renewed moisture.`, region.id, undefined, x, y);
+      if (announce) {
+        this.createClimateFront('rain', x, y, radius * 1.15, 0.78, false);
+        this.note(`A local rain front crosses the ${region.name}. Dry ground darkens and life gathers around the renewed moisture.`, region.id, undefined, x, y, 2);
+      }
     }
     if (kind === 'drought') {
       this.affectCircle(x, y, radius, (tile, strength) => {
@@ -464,7 +655,10 @@ export class Simulation {
         tile.heat = cap(tile.heat + 0.06 * strength, 0, 1);
       });
       changed = true;
-      if (announce) this.note(`A pocket of drought settles over the ${region.name}. The first response will be movement, followed by hunger if the dry spell holds.`, region.id, undefined, x, y);
+      if (announce) {
+        this.createClimateFront('dry', x, y, radius * 1.2, 0.82, false);
+        this.note(`A pocket of drought settles over the ${region.name}. The first response will be movement, followed by hunger if the dry spell holds.`, region.id, undefined, x, y, 2);
+      }
     }
     if (kind === 'fertility') {
       this.affectCircle(x, y, radius, (tile, strength) => {
@@ -495,15 +689,13 @@ export class Simulation {
         survivors.push(current);
       }
       this.state.entities = survivors;
+      this.ignite(x, y, radius, false);
       this.affectCircle(x, y, radius, (tile, strength) => {
-        tile.moisture = cap(tile.moisture - 0.26 * strength, 0, 1);
-        tile.fertility = cap(tile.fertility + 0.12 * strength, 0, 1);
+        tile.fertility = cap(tile.fertility + 0.10 * strength, 0, 1);
         tile.pressure = cap(tile.pressure + 0.18 * strength, 0, 1);
-        tile.burn = cap(tile.burn + 0.95 * strength, 0, 1);
       });
-      this.addLandmark('burn-scar', `The ${region.name} burn`, x, y, region, 1);
-      changed = burned > 0;
-      if (announce) this.note(`Fire has crossed the ${region.name}, removing old growth and leaving a warmer, nutrient-rich scar that the landscape will remember.`, region.id, undefined, x, y);
+      changed = true;
+      if (announce) this.note(`Fire has crossed the ${region.name}, removing old growth and leaving a warmer, nutrient-rich scar that the landscape will remember.`, region.id, undefined, x, y, 3);
       this.refreshGroupMembership(false);
     }
 
@@ -527,15 +719,32 @@ export class Simulation {
 
   step(): void {
     this.state.day += 1;
+    const previousSeason = this.state.seasonName;
     this.state.season = (this.state.day % 360) / 360;
+    this.state.seasonName = this.seasonFor(this.state.season);
+    if (this.state.seasonName !== previousSeason) {
+      const region = this.randomRegion();
+      const messages: Record<SeasonName, string> = {
+        Spring: `Spring returns to the ${region.name}. Fresh growth creates new choices for every grazing group.`,
+        Summer: `Summer settles over the ${region.name}. Water and shade begin to matter more than distance.`,
+        Autumn: `Autumn reaches the ${region.name}. Movement slows as the planet stores the remains of its productive season.`,
+        Winter: `Winter enters the ${region.name}. Growth contracts and established routes become increasingly important.`,
+      };
+      this.note(messages[this.state.seasonName], region.id, undefined, region.x, region.y, 2);
+    }
+
+    this.updateClimate();
+    this.updateFire();
 
     for (const tile of this.state.tiles) {
       tile.pressure *= 0.96;
       tile.trail *= 0.9992;
-      tile.burn *= 0.9982;
+      tile.burn *= tile.fire > 0.02 ? 0.9996 : 0.9982;
       const seasonal = Math.sin(this.state.season * Math.PI * 2);
-      tile.moisture = cap(tile.moisture + seasonal * 0.0008 - 0.0003, 0, 1);
-      tile.fertility = cap(tile.fertility + 0.0002 + tile.burn * 0.00012, 0, 1);
+      const summerDrying = this.state.seasonName === 'Summer' ? 0.00055 : 0;
+      const winterRecovery = this.state.seasonName === 'Winter' ? 0.00022 : 0;
+      tile.moisture = cap(tile.moisture + seasonal * 0.00055 - 0.00018 - summerDrying + winterRecovery, 0, 1);
+      tile.fertility = cap(tile.fertility + 0.00016 + tile.burn * 0.00012, 0, 1);
     }
 
     if (this.state.day % 120 === 1) this.redirectGroups();
@@ -555,7 +764,8 @@ export class Simulation {
       if (current.species === 'plant') {
         const scarPenalty = tile.burn > 0.45 ? tile.burn * 0.035 : 0;
         const pathPenalty = tile.trail * 0.018;
-        current.energy += tile.moisture * 0.035 + tile.fertility * 0.025 - 0.018 - scarPenalty - pathPenalty;
+        const growthMultiplier = this.state.seasonName === 'Spring' ? 1.22 : this.state.seasonName === 'Summer' ? 0.88 : this.state.seasonName === 'Autumn' ? 0.96 : 0.68;
+        current.energy += (tile.moisture * 0.035 + tile.fertility * 0.025) * growthMultiplier - 0.018 - scarPenalty - pathPenalty - tile.fire * 1.6;
         if (current.energy > 75 && entities.length < MAX_ENTITIES && this.rng.next() < 0.015) {
           const nx = current.x + this.rng.range(-3, 3);
           const ny = current.y + this.rng.range(-3, 3);
@@ -566,7 +776,7 @@ export class Simulation {
           }
         }
       } else if (current.species === 'fungi') {
-        current.energy -= 0.015;
+        current.energy -= 0.015 + tile.fire * 1.2;
         const carrion = entities.find((other) => other.species === 'carrion' && dist(current, other) < 3);
         if (carrion) {
           current.energy += 0.7;
@@ -586,6 +796,11 @@ export class Simulation {
         tile.fertility = Math.min(1, tile.fertility + 0.0015);
       } else {
         const speed = current.species === 'predator' ? 0.34 : current.species === 'scavenger' ? 0.28 : 0.25;
+        if (tile.fire > 0.04) {
+          current.vx += this.rng.range(-0.16, 0.16) - this.state.windX * 0.35;
+          current.vy += this.rng.range(-0.16, 0.16) - this.state.windY * 0.35;
+          current.energy -= tile.fire * 0.8;
+        }
         let target: Entity | undefined;
         if (current.species === 'grazer') target = entities.find((other) => other.species === 'plant' && dist(current, other) < 6);
         if (current.species === 'predator') target = entities.find((other) => other.species === 'grazer' && dist(current, other) < 9);
@@ -679,18 +894,30 @@ export class Simulation {
 
     if (this.state.day % 90 === 0) {
       const counts = this.counts();
-      if (counts.grazer < 18 && counts.plant > 250) {
-        const region = this.region('central');
-        this.createSocialGroup('grazer', 18, region.x, region.y, 13, true);
+      if (counts.grazer < 34 && counts.plant > 280) {
+        const resources = this.regionResources();
+        const region = [...this.state.regions].sort((a, b) => resources.get(b.id)!.plant - resources.get(a.id)!.plant)[0] ?? this.region('central');
+        this.createSocialGroup('grazer', counts.grazer < 18 ? 18 : 11, region.x, region.y, 12, true);
       }
       if (counts.plant < 180) {
         const region = this.randomRegion();
         this.seedClusterAt('plant', 300, region.x, region.y, 16);
-        this.note(`After a sparse season, plant life returns in scattered islands across the ${region.name}.`, region.id, undefined, region.x, region.y);
+        this.note(`After a sparse season, plant life returns in scattered islands across the ${region.name}.`, region.id, undefined, region.x, region.y, 2);
       }
-      if (counts.predator < 3 && counts.grazer > 60) {
-        const region = this.region('north');
-        this.createSocialGroup('predator', 4, region.x, region.y, 12, true);
+      if (counts.predator < 2 && counts.grazer > 25) {
+        const resources = this.regionResources();
+        const region = [...this.state.regions].sort((a, b) => resources.get(b.id)!.grazer - resources.get(a.id)!.grazer)[0] ?? this.region('north');
+        this.createSocialGroup('predator', 2, region.x, region.y, 9, true);
+      }
+      if (counts.scavenger < 4 && counts.carrion > 8) {
+        const resources = this.regionResources();
+        const region = [...this.state.regions].sort((a, b) => resources.get(b.id)!.carrion - resources.get(a.id)!.carrion)[0] ?? this.region('coast');
+        this.createSocialGroup('scavenger', 5, region.x, region.y, 10, true);
+      }
+      if (counts.fungi < 36 && counts.carrion > 10) {
+        const region = this.randomRegion();
+        this.seedClusterAt('fungi', 50, region.x, region.y, 13);
+        this.note(`A new fungal bloom appears beneath the ${region.name}, arriving as older decomposer colonies fade.`, region.id, undefined, region.x, region.y, 1);
       }
     }
 

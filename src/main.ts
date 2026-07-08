@@ -11,7 +11,7 @@ app.innerHTML = `
   <div class="topbar">
     <section class="brand">
       <h1>The Living Planet</h1>
-      <p>v0.7 · Herds, Packs & Memory</p>
+      <p>v0.9 · Climate, Seasons & Documentary</p>
     </section>
     <section class="metrics" id="metrics"></section>
   </div>
@@ -23,12 +23,15 @@ app.innerHTML = `
     <button data-view="pressure">Pressure</button>
     <button data-view="memory">Memory</button>
     <button data-view="groups">Groups</button>
+    <button data-view="climate">Climate</button>
     <span class="divider"></span>
     <button id="pause">Pause</button>
     <button id="labels" class="active">Labels</button>
     <button id="recenter">Recenter</button>
     <button id="chronicle-toggle">Chronicle</button>
     <button id="wildlife-toggle">Wildlife</button>
+    <button id="director-toggle">Story follow</button>
+    <button id="documentary-toggle">Documentary</button>
   </div>
 
   <section class="naturalist">
@@ -69,6 +72,8 @@ app.innerHTML = `
       <small id="time-rate-caption">Normal observation</small>
     </label>
 
+    <section class="climate-summary" id="climate-summary"></section>
+
     <div class="pan-hint">Observe mode: drag to pan. With a tool selected: <strong>Shift-drag</strong> or right-drag to pan. Use <strong>[</strong> and <strong>]</strong> to change time flow.</div>
   </section>
 
@@ -97,7 +102,12 @@ app.innerHTML = `
     <div class="wildlife-list" id="wildlife-list"></div>
   </section>
 
-  <div class="help">Wheel zoom · R recenter · L labels · C chronicle · W wildlife · [ ] time flow · Space pause · Esc observe</div>
+  <div class="documentary-dock" id="documentary-dock">
+    <button id="documentary-exit">Exit documentary</button>
+    <button id="documentary-director">Story follow: off</button>
+  </div>
+
+  <div class="help">Wheel zoom · R recenter · L labels · C chronicle · W wildlife · D documentary · F story follow · [ ] time flow · Space pause · Esc observe</div>
 </div>`;
 
 const canvas = document.querySelector<HTMLCanvasElement>('#world')!;
@@ -122,6 +132,9 @@ let lastY = 0;
 let lastPaintTime = 0;
 let lastPaintX = Number.NaN;
 let lastPaintY = Number.NaN;
+let documentaryMode = false;
+let directorEnabled = false;
+let lastDirectedNote = '';
 
 const metrics = document.querySelector<HTMLElement>('#metrics')!;
 const noteElement = document.querySelector<HTMLElement>('#note')!;
@@ -141,11 +154,68 @@ const wildlife = document.querySelector<HTMLElement>('#wildlife')!;
 const wildlifeList = document.querySelector<HTMLElement>('#wildlife-list')!;
 const wildlifeToggle = document.querySelector<HTMLButtonElement>('#wildlife-toggle')!;
 const registrySummary = document.querySelector<HTMLElement>('#registry-summary')!;
+const climateSummary = document.querySelector<HTMLElement>('#climate-summary')!;
+const documentaryToggle = document.querySelector<HTMLButtonElement>('#documentary-toggle')!;
+const documentaryExit = document.querySelector<HTMLButtonElement>('#documentary-exit')!;
+const directorToggle = document.querySelector<HTMLButtonElement>('#director-toggle')!;
+const documentaryDirector = document.querySelector<HTMLButtonElement>('#documentary-director')!;
 let chronicleSignature = '';
 let wildlifeSignature = '';
 
 function groupLocation(group: SocialGroup): { x: number; y: number } {
   return sim.groupLocation(group);
+}
+
+function windLabel(x: number, y: number): string {
+  const angle = Math.atan2(y, x);
+  const directions = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'];
+  const index = Math.round(angle / (Math.PI / 4) + 8) % 8;
+  return directions[index];
+}
+
+function noteLocation(index: number): { x: number; y: number } | undefined {
+  const entry = sim.state.notes[index];
+  if (!entry) return undefined;
+  if (entry.focusX !== undefined && entry.focusY !== undefined) return { x: entry.focusX, y: entry.focusY };
+  const group = entry.groupId ? sim.state.groups.find((candidate) => candidate.id === entry.groupId) : undefined;
+  if (group) return groupLocation(group);
+  const region = entry.regionId ? sim.state.regions.find((candidate) => candidate.id === entry.regionId) : undefined;
+  return region ? { x: region.x, y: region.y } : undefined;
+}
+
+function setDirector(enabled: boolean): void {
+  directorEnabled = enabled;
+  directorToggle.classList.toggle('active', enabled);
+  directorToggle.textContent = enabled ? 'Story follow: on' : 'Story follow';
+  documentaryDirector.classList.toggle('active', enabled);
+  documentaryDirector.textContent = `Story follow: ${enabled ? 'on' : 'off'}`;
+  if (!enabled) renderer.cancelCinematic();
+  else lastDirectedNote = '';
+}
+
+function setDocumentary(enabled: boolean): void {
+  documentaryMode = enabled;
+  document.body.classList.toggle('documentary-mode', enabled);
+  documentaryToggle.classList.toggle('active', enabled);
+  if (enabled) {
+    selectTool('observe');
+    setChronicle(false);
+    setWildlife(false);
+    renderer.view = 'natural';
+    document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((button) => button.classList.toggle('active', button.dataset.view === 'natural'));
+  }
+}
+
+function maybeDirectCamera(): void {
+  if (!directorEnabled) return;
+  const entry = sim.state.notes[0];
+  if (!entry || (entry.importance ?? 1) < 2) return;
+  const signature = `${entry.day}:${entry.text}`;
+  if (signature === lastDirectedNote) return;
+  const point = noteLocation(0);
+  if (!point) return;
+  lastDirectedNote = signature;
+  renderer.setCinematicTarget(point.x, point.y, entry.importance === 3 ? 10.5 : 9);
 }
 
 function drawMetrics(force = false): void {
@@ -154,11 +224,19 @@ function drawMetrics(force = false): void {
   const counts = sim.counts();
   metrics.innerHTML = `
     <div class="metric"><span>Day</span><strong>${sim.state.day}</strong></div>
+    <div class="metric"><span>Season</span><strong>${sim.state.seasonName}</strong></div>
     <div class="metric"><span>Plants</span><strong>${counts.plant}</strong></div>
     <div class="metric"><span>Grazers</span><strong>${counts.grazer}</strong></div>
     <div class="metric"><span>Predators</span><strong>${counts.predator}</strong></div>
-    <div class="metric"><span>Groups</span><strong>${sim.state.groups.length}</strong></div>
-    <div class="metric"><span>Memory</span><strong>${sim.state.landmarks.length}</strong></div>`;
+    <div class="metric"><span>Fronts</span><strong>${sim.state.climateFronts.length}</strong></div>`;
+
+  const rain = sim.state.climateFronts.filter((front) => front.kind === 'rain').length;
+  const dry = sim.state.climateFronts.filter((front) => front.kind === 'dry').length;
+  const storms = sim.state.climateFronts.filter((front) => front.kind === 'storm').length;
+  climateSummary.innerHTML = `
+    <div><span>Current season</span><strong>${sim.state.seasonName}</strong></div>
+    <div><span>Prevailing wind</span><strong>${windLabel(sim.state.windX, sim.state.windY)}</strong></div>
+    <div><span>Active weather</span><strong>${rain} rain · ${dry} dry · ${storms} storm</strong></div>`;
 
   const note = sim.state.notes[0];
   const region = note?.regionId ? sim.state.regions.find((candidate) => candidate.id === note.regionId) : undefined;
@@ -169,20 +247,8 @@ function drawMetrics(force = false): void {
 }
 
 function focusNote(index: number): void {
-  const entry = sim.state.notes[index];
-  if (!entry) return;
-  if (entry.focusX !== undefined && entry.focusY !== undefined) {
-    renderer.focus(entry.focusX, entry.focusY, 9);
-    return;
-  }
-  const group = entry.groupId ? sim.state.groups.find((candidate) => candidate.id === entry.groupId) : undefined;
-  if (group) {
-    const point = groupLocation(group);
-    renderer.focus(point.x, point.y, 9);
-    return;
-  }
-  const region = entry.regionId ? sim.state.regions.find((candidate) => candidate.id === entry.regionId) : undefined;
-  if (region) renderer.focus(region.x, region.y, 9);
+  const point = noteLocation(index);
+  if (point) renderer.focus(point.x, point.y, 9);
 }
 
 function drawChronicle(force = false): void {
@@ -193,7 +259,7 @@ function drawChronicle(force = false): void {
   chronicleList.innerHTML = sim.state.notes.map((entry, index) => {
     const region = entry.regionId ? sim.state.regions.find((candidate) => candidate.id === entry.regionId) : undefined;
     const group = entry.groupId ? sim.state.groups.find((candidate) => candidate.id === entry.groupId) : undefined;
-    return `<button class="chronicle-entry${index === 0 ? ' latest' : ''}" data-index="${index}">
+    return `<button class="chronicle-entry${index === 0 ? ' latest' : ''} importance-${entry.importance ?? 1}" data-index="${index}">
       <span class="chronicle-meta"><strong>Day ${entry.day}</strong><em>${group?.name ?? region?.name ?? 'Planetwide'}</em></span>
       <span>${entry.text}</span>
     </button>`;
@@ -282,6 +348,7 @@ function frame(time: number): void {
   } else {
     accumulator = 0;
   }
+  maybeDirectCamera();
   renderer.render(sim.state);
   drawMetrics();
   drawChronicle();
@@ -355,6 +422,10 @@ chronicleToggle.onclick = () => setChronicle(chronicle.classList.contains('hidde
 document.querySelector<HTMLButtonElement>('#close-chronicle')!.onclick = () => setChronicle(false);
 wildlifeToggle.onclick = () => setWildlife(wildlife.classList.contains('hidden'));
 document.querySelector<HTMLButtonElement>('#close-wildlife')!.onclick = () => setWildlife(false);
+directorToggle.onclick = () => setDirector(!directorEnabled);
+documentaryDirector.onclick = () => setDirector(!directorEnabled);
+documentaryToggle.onclick = () => setDocumentary(!documentaryMode);
+documentaryExit.onclick = () => setDocumentary(false);
 
 function updatePointer(clientX: number, clientY: number): void {
   const world = renderer.worldFromScreen(clientX, clientY);
@@ -376,6 +447,7 @@ function applyTool(clientX: number, clientY: number, announce: boolean): void {
 
 canvas.addEventListener('wheel', (event) => {
   event.preventDefault();
+  if (directorEnabled) setDirector(false);
   const before = renderer.worldFromScreen(event.clientX, event.clientY);
   renderer.camera.zoom = Math.max(3, Math.min(18, renderer.camera.zoom + (event.deltaY < 0 ? 1 : -1)));
   const after = renderer.worldFromScreen(event.clientX, event.clientY);
@@ -387,6 +459,7 @@ canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 
 canvas.addEventListener('pointerdown', (event) => {
   event.preventDefault();
+  if (directorEnabled) setDirector(false);
   pointerId = event.pointerId;
   canvas.setPointerCapture(event.pointerId);
   lastX = event.clientX;
@@ -472,6 +545,8 @@ addEventListener('keydown', (event) => {
   if (event.key.toLowerCase() === 'l') labelsButton.click();
   if (event.key.toLowerCase() === 'c') chronicleToggle.click();
   if (event.key.toLowerCase() === 'w') wildlifeToggle.click();
+  if (event.key.toLowerCase() === 'd') setDocumentary(!documentaryMode);
+  if (event.key.toLowerCase() === 'f') setDirector(!directorEnabled);
   if (shortcutTools[event.key]) selectTool(shortcutTools[event.key]);
 });
 
@@ -479,3 +554,5 @@ selectTool('observe');
 drawMetrics(true);
 drawChronicle(true);
 drawWildlife(true);
+setDirector(false);
+setDocumentary(false);

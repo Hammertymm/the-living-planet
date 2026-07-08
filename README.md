@@ -1,57 +1,48 @@
-# The Living Planet v0.7 — Herds, Packs & World Memory
+# The Living Planet v0.9 — Climate, Seasons & Documentary
 
 A browser-based living ecosystem designed to be watched, explored and gently influenced.
 
-This release keeps the established fundamentals intact: the fixed manual camera, named regions, direct stewardship tools, Naturalist, Chronicle and adjustable time flow. The main change is that social animals now persist as recognisable groups with names, routes and histories.
+This phase keeps the established fundamentals intact: manual camera control, named regions, direct placement tools, named herds and packs, World Chronicle, Living Registry and adjustable time flow. It adds a continuous climate system and a cleaner observation experience.
 
-## New in v0.7
+## New in v0.9
 
-### Named living groups
+### Moving climate
 
-- Grazers now belong to persistent named herds.
-- Predators belong to named packs.
-- Scavengers belong to named colonies or flocks.
-- Each group has a colour, home region, destination, founding day and generation.
-- Animals introduced with the mouse form a new named group rather than appearing anonymously.
-- Newborn animals inherit their parent's group and usually its colour lineage.
+- Rain fronts, dry air masses and storm cells now move across the planet.
+- Weather changes soil moisture, heat and fertility continuously rather than only when a tool is clicked.
+- Prevailing wind changes gradually through the year.
+- The new **Climate** view shows active fronts and wind direction.
+- Rain and drought placed with the mouse create local moving weather systems.
 
-### Group behaviour
+### Four visible seasons
 
-- Group members maintain loose cohesion while searching for food.
-- Herds seek plant-rich regions with lower predator pressure.
-- Packs follow grazer concentrations.
-- Scavenger colonies follow carrion.
-- Large herds can split and create a newly named descendant herd.
-- Small compatible groups can merge for survival.
-- Group extinctions and mergers are recorded by the Naturalist.
+- Spring accelerates plant growth.
+- Summer dries exposed ground and changes vegetation colour.
+- Autumn shifts forests and grasslands toward warmer tones.
+- Winter slows growth and gives the planet a cooler visual character.
+- Seasonal transitions are recorded by the Naturalist and World Chronicle.
 
-### Living Registry
+### Living fire
 
-- Open **Wildlife** to see every active herd, pack and scavenger colony.
-- The registry displays group size, condition, destination and generation.
-- Select a group to centre the camera on it and switch to the Groups view.
-- Press `W` to open or close the registry.
+- Wildfire is no longer only an instant circular removal.
+- Active fire can spread downwind through dry land.
+- Animals attempt to flee burning ground.
+- Burn scars remain part of World Memory and enrich soil during recovery.
+- Dry storm cells can create rare lightning fires.
 
-### Groups view
+### Documentary mode
 
-- Shows the territory around each active group.
-- Displays recent migration routes.
-- Uses each group's inherited colour.
-- Labels groups directly on the world with their current population.
+- Press **D** or select **Documentary** to fade away research controls.
+- The Naturalist becomes a centred documentary caption.
+- The camera remains manual by default.
+- Optional **Story follow** can gently move the camera toward major events.
+- Story follow is disabled by default and turns off immediately when you manually pan or zoom.
 
-### World memory
+### Stability improvements
 
-- Animal movement gradually creates visible paths.
-- Wildfires leave persistent burn scars rather than vanishing immediately.
-- Dens, grazing grounds, migration crossings and burn sites become named landmarks.
-- The new **Memory** view reveals paths, scars and landmarks.
-- Old events fade slowly, allowing the landscape to retain a readable history.
-
-### Chronicle improvements
-
-- Chronicle entries can focus on the exact location of an event, not only the centre of a region.
-- Group-specific events identify the herd or pack involved.
-- The Naturalist can now report group division, migration, merger and extinction.
+- Ecological recovery now protects long-running worlds from silently losing entire trophic roles.
+- Small grazer, predator, scavenger and fungal populations can recover when resources support them.
+- A 4,000-day automated simulation smoke test retains plants, grazers, predators, scavengers and fungi.
 
 ## Run locally
 
@@ -74,6 +65,8 @@ Open the address shown by Vite, normally `http://localhost:5173`.
 - `L`: region labels
 - `C`: World Chronicle
 - `W`: Living Registry
+- `D`: Documentary mode
+- `F`: Story follow
 - `Esc`: Observe mode
 
 ## Production build
