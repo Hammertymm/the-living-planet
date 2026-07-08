@@ -1,8 +1,13 @@
-# The Living Planet v3.0 — Living Observatory
+# The Living Planet v3.0.1 — Living Observatory
 
 A browser-based digital nature documentary: a deterministic planet that can be watched, explored, questioned and gently influenced.
 
-v3.0 completes the planned Observatory arc. It adds falsifiable ecological forecasts, evidence-built documentaries, historical replay and a dynamic visual atmosphere while preserving the simulation as the sole source of ecological truth.
+v3.0.1 completes the planned Observatory arc and includes the stable-atmosphere hotfix. It adds falsifiable ecological forecasts, evidence-built documentaries, historical replay and a dynamic visual atmosphere while preserving the simulation as the sole source of ecological truth.
+
+## Fixed in v3.0.1
+
+- The visual day/night cycle is now independent of simulation stepping, eliminating full-screen brightness pulsing at normal and accelerated time rates.
+- Atmospheric lighting now changes smoothly in real time.
 
 ## New in v3.0
 

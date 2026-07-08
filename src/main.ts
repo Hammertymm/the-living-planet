@@ -16,7 +16,7 @@ app.innerHTML = `
   <div class="topbar">
     <section class="brand">
       <h1>The Living Planet</h1>
-      <p>v3.0 · Living Observatory</p><span class="save-status" id="save-status">Preparing world…</span>
+      <p>v3.0.1 · Stable Atmosphere</p><span class="save-status" id="save-status">Preparing world…</span>
     </section>
     <section class="metrics" id="metrics"></section>
   </div>
@@ -259,7 +259,7 @@ let chronicleSignature = '';
 let wildlifeSignature = '';
 let livesSignature = '';
 
-const APP_VERSION = '3.0.0';
+const APP_VERSION = '3.0.1';
 const AUTOSAVE_ID = 'autosave';
 
 function cleanWorldName(value: string, seed = sim.state.seed): string {
@@ -1189,7 +1189,7 @@ addEventListener('keydown', (event) => {
 });
 
 installLivingPlanetBridge({
-  version: '3.0.0',
+  version: '3.0.1',
   snapshot: () => sim.snapshot(),
   counts: () => sim.counts(),
   worldInfo: () => ({ name: currentWorldName, seed: sim.state.seed, day: sim.state.day, season: sim.state.seasonName }),

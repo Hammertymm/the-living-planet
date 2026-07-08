@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.0.1 — Stable Atmosphere
+
+- Fixed full-screen brightness pulsing in Natural view.
+- Decoupled the visual day/night phase from accelerated simulation days.
+- Slowed the default visual cycle to a smooth four-minute real-time cycle at 1×.
+- Preserved climate, fog, stars and cloud-shadow effects without abrupt flashes.
+
 ## v3.0.0 — Living Observatory
 
 ### Added

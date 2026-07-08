@@ -519,8 +519,12 @@ export class Renderer {
 
 
   private atmospherePhase(state: PlanetState): number {
-    const moving = performance.now() / 90_000 * this.atmosphere.cycleSpeed;
-    return ((state.day * 0.137 + moving) % 1 + 1) % 1;
+    // Visual atmosphere must remain smooth regardless of simulation speed.
+    // The previous phase advanced directly from state.day, which caused large
+    // brightness jumps whenever the accelerated simulation stepped forward.
+    const seedOffset = ((state.seed * 0.61803398875) % 1 + 1) % 1;
+    const moving = performance.now() / 240_000 * this.atmosphere.cycleSpeed;
+    return (seedOffset + moving) % 1;
   }
 
   private drawCloudShadows(state: PlanetState, phase: number): void {

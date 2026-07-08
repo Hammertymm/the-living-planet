@@ -1,4 +1,4 @@
-# Upgrade to The Living Planet v3.0 — Living Observatory
+# Upgrade to The Living Planet v3.0.1 — Living Observatory
 
 1. Stop the current Vite server with `Ctrl+C`.
 2. Extract all files from this package over `C:\Projects\the-living-planet`.
@@ -31,3 +31,7 @@ The archive does not modify or replace IndexedDB world saves.
 WebM recording depends on browser support. Playback and dossier export remain available when recording is unsupported.
 
 Ambient audio is intentionally not included.
+
+## Stable atmosphere hotfix
+
+v3.0.1 removes the rapid full-screen pulsing caused by tying visual lighting directly to accelerated simulation days. No save migration is required.
