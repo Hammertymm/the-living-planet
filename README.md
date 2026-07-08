@@ -1,174 +1,123 @@
-# The Living Planet v2.6 — Deep Ecology
+# The Living Planet v3.0 — Living Observatory
 
-A browser-based living ecosystem designed to be watched, explored, questioned and gently influenced.
+A browser-based digital nature documentary: a deterministic planet that can be watched, explored, questioned and gently influenced.
 
-## v2.6 — Deep Ecology
+v3.0 completes the planned Observatory arc. It adds falsifiable ecological forecasts, evidence-built documentaries, historical replay and a dynamic visual atmosphere while preserving the simulation as the sole source of ecological truth.
 
-This release completes the next planned evolutionary bundle after Living Creatures: ecological niches, a landscape that changes through deep time, and multi-year climate eras.
+## New in v3.0
 
-### Functional ecological niches
+### Scientific Naturalist
 
-Plants, fungi and animals now occupy distinct ecological roles rather than behaving only as broad species categories.
+Open **Observatory → Forecasts** or press `O`.
 
-Examples include:
+The Naturalist can now register explicit ecological predictions such as:
 
-- pioneer grass, deep-root shrub, wetland reed, canopy growth and firebloom
-- grass feeder, browser, wetland grazer, highland grazer and migratory generalist
-- pursuit hunter, ambush hunter, pack hunter, solitary stalker and waterhole hunter
-- open-country, wetland and forest scavengers
-- carrion decomposers, root symbionts, burn-scar colonisers and wetland fungi
+- a population increasing, declining or remaining broadly stable
+- a fragile herd surviving or losing members
+- a migrating group reaching its target region
+- surface water or vegetation responding to the current climate era
 
-Niche suitability changes growth, feeding efficiency, hunting success and energy demand. It remains bounded so genetics, weather, food, water and predation still determine the outcome.
+Each prediction contains:
 
-### Living landscape
+- issue day and due day
+- confidence level
+- measurable subject and threshold
+- evidence and rationale
+- later observed result
+- confirmed, partly confirmed, refuted or inconclusive status
 
-Terrain now retains succession, erosion and sediment in addition to moisture, fertility, water, trails, burns and active fire.
+Due forecasts are automatically tested against later simulation samples. The Observatory reports accumulated accuracy and calibration rather than pretending every prediction is correct.
 
-Over long periods:
+Predictions never change the live planet.
 
-- wetlands can form in saturated lowlands
-- wetlands can dry back into grassland
-- undisturbed moist grassland can mature into forest
-- fire, drought and ecological pressure can reopen forest
-- roots reduce erosion
-- water, fire and trails increase erosion and move sediment
+### Generative documentaries
 
-Use the new **Habitat** view to see the combined pattern of succession, wetland development and erosion.
+Open **Observatory → Films**.
 
-### Climate eras
+Three grounded formats are available:
 
-The annual seasons now sit inside longer planetary intervals:
+- **Field brief** — the latest important events
+- **Seasonal chapter** — a broader ecological story
+- **Era documentary** — a longer historical arc
 
-- temperate
-- wet
-- dry
-- cooling
-- fire-dominated
+The documentary system selects only recorded events and current simulation subjects. It builds:
 
-Each era lasts roughly 1,500–2,850 simulation days and changes rainfall balance, heat, water retention and fire spread. Era transitions are recorded by the Naturalist and appear in planetary memory.
+- an opening establishing shot
+- located Chronicle events
+- notable animal and group sequences
+- landscape and climate context
+- a closing observation
+- an evidence-linked storyboard
 
-### Animal hover identification
+Films can be:
 
-Hover directly over a grazer, predator or scavenger. A small temporary card shows:
+- played inside Documentary Mode
+- exported as a Markdown documentary dossier
+- recorded as a captioned WebM where the browser supports `MediaRecorder` and canvas recording
 
-- identity or animal number
-- species and life stage
-- current condition
-- group
-- region
-- ecological niche
-- lineage
+Manual pointer or wheel input stops directed playback immediately.
 
-The card disappears immediately when the pointer moves away. It does not select, pause or follow the animal.
+### Observatory archive and replay
 
-### Living Creatures retained
+The new per-world Observatory archive stores a bounded record of:
 
-- notable animal biographies and leadership succession
-- juvenile, adult and elder life stages
-- thirst, fatigue, fear and injury
-- vulnerable-prey selection and cooperative herd defence
-- deterministic rivers, waterholes and migration
-- one-time biography focus from the **Lives** panel
+- 30-day scientific samples
+- verified Chronicle events
+- forecasts and outcomes
+- generated documentary plans
 
-Individual animal camera following has been removed. Documentary **Story Follow** remains a separate optional mode for significant world events.
+The archive can generate a new film from recent history or be exported as JSON. It supplements the World Chronicle and Planetary Memory; it does not replace authoritative world saves.
 
-The simulation remains the source of truth. AI and analytical systems may explain or compare outcomes, but cannot invent ecology or silently change the live world.
+### Visual atmosphere
 
-## v2.0.3 interface refinement
+Open **Observatory → Atmosphere**.
 
-The observatory controls now use narrower two-column rails on both sides, exposing more of the central world view. Group territories in the **Groups** view now use fixed species colours:
+The renderer now supports:
 
-- Grazers — yellow
-- Predators — red
-- Scavengers — cyan
+- a continuous dawn, daylight, dusk and moonlit-night cycle
+- moisture-driven fog
+- weather-dependent moving cloud shadows
+- stronger cinematic or subtler observation presets
+- adjustable strength and cycle speed
+- a complete off switch
 
-The right-side Stewardship panel has also been moved below the complete Observatory rail so Intelligence, Science Lab and Genesis remain visible.
+Atmospheric effects apply to the Natural view and do not alter climate, visibility, energy or animal behaviour.
 
+**Ambient audio remains deliberately shelved.** v3.0 adds no sound system.
 
-## v2.0.1 herd-balance correction
+### Animal hover identification retained
 
-Named grazer herds can now grow when food, energy and predator pressure permit. The original v2.0 balance allowed the planet-wide grazer population to be replenished, but most established named herds were spatially disconnected from forage and therefore only declined.
+Hover directly over a grazer, predator or scavenger to see a temporary information card containing identity, life stage, condition, group, region, niche and lineage. The card disappears as soon as the pointer moves away.
 
-The correction adds:
+## Major systems retained
 
-- Migration toward actual vegetation hotspots rather than abstract region centres
-- Longer-range grazer foraging
-- Resource-gated spring calving seasons
-- Lower, seasonal reproductive thresholds without removing starvation or predation
-- A higher herd-splitting threshold so growth is visible before a herd divides
-- Emergency grazer reintroduction only near genuine population collapse
+- Notable individual lives, leaders and descendants
+- Behavioural ecology, thirst, fatigue, fear and injury
+- Rivers, waterholes and water-driven migration
+- Functional ecological niches
+- Erosion, sediment, succession and changing biomes
+- Long climate eras
+- Genetics, lineages and extinction history
+- Counterfactual Science Lab
+- Approval-gated Steward Planner
+- World Composer
+- Grounded Intelligence and optional server-side cloud Naturalist
+- Documentary mode and optional Story Follow
+- IndexedDB world library, autosave, import and export
 
-Extinction remains possible. A herd in poor habitat or under sustained predation can still disappear, but healthy herds now gain young animals and can become visibly larger. Existing v2.0 worlds use the corrected behaviour as soon as they are loaded.
+## Core rule
 
-## What v2.0 adds
+> The simulation creates reality. Intelligence may observe, forecast, compare and present it, but never invent or silently control it.
 
-### Genetic evolution
+## Install or upgrade
 
-Every living entity now carries an inherited genome containing:
+Stop Vite with `Ctrl+C`, then extract this package over:
 
-- Speed
-- Metabolism
-- Fertility
-- Perception
-- Environmental resilience
-- Cooperation
-- Camouflage
+```text
+C:\Projects\the-living-planet
+```
 
-Traits affect movement, energy use, reproduction, group cohesion, hunting success, escape and lifespan. Offspring inherit mutated traits. Long-lived populations can diverge into named descendant lineages, while extinct branches remain in the record.
-
-Use the new **Lineages** map or open **Genesis → Evolution** to inspect living and extinct branches.
-
-### Planetary memory
-
-The short Chronicle remains useful for recent events. The new long-term archive records:
-
-- Major ecological events
-- Lineage origins and extinctions
-- Named eras every 360 simulated days
-- Long-term regional history
-- Historical context beyond the Chronicle limit
-
-Memory is stored locally per world seed.
-
-### World Composer
-
-Describe a world in plain language, preview the deterministic recipe, then approve its creation.
-
-Examples:
-
-- A dry migration world with scarce water and large grazer herds
-- A fungal rainforest with heavy rain and rich decomposer networks
-- A volcanic recovery landscape with ash-rich soil and pioneer plants
-- A balanced sanctuary with wetlands and resilient food webs
-
-The Composer archives the current world before creating another. It shapes ecological starting conditions; it does not pretend to generate arbitrary terrain geometry that the current terrain engine cannot support.
-
-### Steward Planner
-
-The Steward is an approval-gated simulation agent.
-
-1. Select an ecological objective.
-2. Select a region.
-3. The Steward forks the current world.
-4. It runs multiple matched alternative futures.
-5. It ranks interventions by the chosen objective.
-6. Nothing changes in the live world until you approve a recommendation.
-
-Objectives include biodiversity, grazer recovery, predator balance, drought resilience and soil recovery.
-
-### Science and documentary systems retained
-
-- Counterfactual Ecology Lab
-- Matched baseline and intervention futures
-- Documentary Director and Story Reel
-- Grounded Naturalist 2.0
-- Optional secure cloud Naturalist
-- Evidence ledger with traceable evidence IDs
-- Named regions, herds, packs and scavenger colonies
-- Climate fronts, seasons, wildfire and succession
-- IndexedDB world saves, autosave, export and import
-
-## Run locally
+Run:
 
 ```powershell
 cd C:\Projects\the-living-planet
@@ -179,28 +128,7 @@ npm run build
 npm run dev
 ```
 
-Open the local address printed by Vite, normally:
-
-```text
-http://localhost:5173
-```
-
-## Upgrade an existing copy
-
-1. Stop Vite with `Ctrl+C`.
-2. Extract the v2.6 ZIP over `C:\Projects\the-living-planet`.
-3. Allow Windows to replace matching files.
-4. Run the commands above.
-
-Existing v1.x saves are migrated when loaded. Old entities receive deterministic fallback genomes and are assigned to compatible founding lineages.
-
-After testing:
-
-```powershell
-git add .
-git commit -m "Release Deep Ecology with niches landscapes and climate eras"
-git push
-```
+Existing v1.x and v2.x world saves remain compatible and are hydrated when loaded.
 
 ## Main controls
 
@@ -216,39 +144,21 @@ git push
 | `L` | Toggle region labels |
 | `C` | Chronicle |
 | `W` | Living Registry |
+| `V` | Notable Lives |
 | `M` | World Library |
 | `I` | Grounded Intelligence |
 | `X` | Science Lab |
-| `G` | Genesis Observatory |
+| `G` | Genesis |
+| `O` | Living Observatory |
 | `D` | Documentary mode |
-| `F` | Story follow |
+| `F` | Story Follow |
 | `Ctrl+S` | Save current world |
-| `Esc` | Return to Observe mode |
+| `Esc` | Stop a playing film or return to Observe mode |
 
-## Genesis Observatory
+## Commit
 
-Open **Genesis** or press `G`.
-
-- **Evolution** — inspect lineage traits, ancestry and extinction status.
-- **Memory** — view named eras and archived planetary events.
-- **Composer** — create deterministic ecological scenarios from natural language.
-- **Steward** — test and rank interventions before approving them.
-
-## Optional cloud Naturalist
-
-The local Naturalist, evolution system, memory archive, Composer and Steward all work without an API key.
-
-The optional cloud Naturalist requires a server-side `OPENAI_API_KEY`. Never create a browser-exposed `VITE_OPENAI_API_KEY`.
-
-## Design rules
-
-1. The simulation creates reality.
-2. Intelligence must cite or derive from simulation evidence.
-3. Agents may test alternatives but cannot silently alter the live planet.
-4. Manual camera control remains the default.
-5. Observation clarity takes priority over raw entity count.
-6. New systems must interact with existing ecology rather than exist as isolated features.
-
-## Important limitation
-
-The Living Planet is an artificial-life artwork and simulation sandbox. Its ecological outputs are not forecasts or real-world environmental advice.
+```powershell
+git add .
+git commit -m "Release The Living Planet v3.0 Living Observatory"
+git push
+```

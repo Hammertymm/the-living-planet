@@ -62,3 +62,9 @@ The main application owns the Lives panel, one-time biography focus and pointer-
 ## Deep ecology
 
 `src/world/ecology.ts` assigns functional niches, bounded habitat suitability and long climate-era effects. Terrain cells retain succession, erosion and sediment, allowing biome transitions to emerge from water, roots, grazing, trails and fire. See `DEEP_ECOLOGY_ARCHITECTURE.md`.
+## Living Observatory
+
+`src/observatory/` closes the evidence loop around the existing simulation. The archive stores bounded samples and located events per world seed; the predictor registers measurable hypotheses and resolves them after their due day; the film builder converts verified events into documentary shot plans; the bootstrap owns Observatory UI, archive export, WebM recording and atmosphere preferences.
+
+The renderer owns cinematic captions and dynamic light/fog/cloud presentation. These values are deliberately excluded from `PlanetState` because they do not affect ecology. See `LIVING_OBSERVATORY_ARCHITECTURE.md`.
+

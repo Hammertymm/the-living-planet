@@ -1,5 +1,20 @@
 import type { ClimateFront, Landmark, PlacementTool, PlanetState, SocialGroup, Tile, ViewMode } from '../world/types';
 
+
+export interface CinematicCaption {
+  eyebrow: string;
+  title: string;
+  body: string;
+}
+
+export interface AtmosphereState {
+  enabled: boolean;
+  intensity: number;
+  cycleSpeed: number;
+  fog: boolean;
+  cloudShadows: boolean;
+}
+
 const WORLD_WIDTH = 180;
 const WORLD_HEIGHT = 110;
 
@@ -89,6 +104,8 @@ export class Renderer {
   brush = { tool: 'observe' as PlacementTool, x: 0, y: 0, radius: 8, visible: false };
   highlightEntityId?: number;
   hoverEntityId?: number;
+  cinematicCaption?: CinematicCaption;
+  atmosphere: AtmosphereState = { enabled: true, intensity: 0.68, cycleSpeed: 1, fog: true, cloudShadows: true };
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
@@ -126,6 +143,15 @@ export class Renderer {
 
   cancelCinematic(): void {
     this.targetCamera = null;
+  }
+
+
+  setCinematicCaption(caption?: CinematicCaption): void {
+    this.cinematicCaption = caption;
+  }
+
+  setAtmosphere(settings: Partial<AtmosphereState>): void {
+    this.atmosphere = { ...this.atmosphere, ...settings };
   }
 
   private updateCamera(): void {
@@ -491,6 +517,146 @@ export class Renderer {
     ctx.restore();
   }
 
+
+  private atmospherePhase(state: PlanetState): number {
+    const moving = performance.now() / 90_000 * this.atmosphere.cycleSpeed;
+    return ((state.day * 0.137 + moving) % 1 + 1) % 1;
+  }
+
+  private drawCloudShadows(state: PlanetState, phase: number): void {
+    if (!this.atmosphere.cloudShadows || this.view !== 'natural') return;
+    const ctx = this.ctx;
+    const time = performance.now() * 0.000018;
+    const density = Math.min(0.28, state.climateFronts.length * 0.028 + (state.climateEra.kind === 'wet' ? 0.08 : 0));
+    if (density <= 0.015) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    for (let index = 0; index < 5; index += 1) {
+      const x = ((index * 311 + time * innerWidth * (0.7 + index * 0.08)) % (innerWidth + 520)) - 260;
+      const y = 70 + ((index * 173) % Math.max(160, innerHeight - 220));
+      const width = 220 + index * 34;
+      const height = 80 + (index % 3) * 22;
+      const gradient = ctx.createRadialGradient(x, y, 10, x, y, width * 0.55);
+      gradient.addColorStop(0, `rgba(7,18,22,${density * (0.7 + Math.sin(phase * Math.PI * 2 + index) * 0.12)})`);
+      gradient.addColorStop(1, 'rgba(7,18,22,0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.ellipse(x, y, width, height, -0.12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  private drawAtmosphere(state: PlanetState): void {
+    if (!this.atmosphere.enabled || this.view !== 'natural') return;
+    const ctx = this.ctx;
+    const phase = this.atmospherePhase(state);
+    const sun = clamp(Math.sin((phase - 0.25) * Math.PI * 2), 0, 1);
+    const night = 1 - sun;
+    const dawn = Math.exp(-Math.pow((phase - 0.255) / 0.07, 2));
+    const dusk = Math.exp(-Math.pow((phase - 0.745) / 0.07, 2));
+    const intensity = this.atmosphere.intensity;
+
+    if (night > 0.22) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.82, (night - 0.16) * intensity);
+      for (let index = 0; index < 72; index += 1) {
+        const x = (index * 97.31 + 43) % innerWidth;
+        const y = (index * 53.77 + 17) % Math.max(120, innerHeight * 0.72);
+        const radius = index % 9 === 0 ? 1.25 : 0.62;
+        ctx.fillStyle = index % 7 === 0 ? '#d7e7ef' : '#eef5ee';
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const moonX = innerWidth * (0.18 + phase * 0.64);
+      const moonY = innerHeight * (0.18 + Math.abs(phase - 0.5) * 0.18);
+      const glow = ctx.createRadialGradient(moonX, moonY, 2, moonX, moonY, 140);
+      glow.addColorStop(0, `rgba(199,222,231,${0.22 * night * intensity})`);
+      glow.addColorStop(1, 'rgba(199,222,231,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, innerWidth, innerHeight);
+      ctx.restore();
+    }
+
+    const top = ctx.createLinearGradient(0, 0, 0, innerHeight);
+    top.addColorStop(0, `rgba(7,18,35,${night * 0.66 * intensity})`);
+    top.addColorStop(0.52, `rgba(7,17,27,${night * 0.42 * intensity})`);
+    top.addColorStop(1, `rgba(3,9,12,${night * 0.56 * intensity})`);
+    ctx.fillStyle = top;
+    ctx.fillRect(0, 0, innerWidth, innerHeight);
+
+    const warm = Math.max(dawn, dusk);
+    if (warm > 0.025) {
+      const horizon = ctx.createLinearGradient(0, innerHeight * 0.22, 0, innerHeight);
+      horizon.addColorStop(0, `rgba(231,124,62,${warm * 0.13 * intensity})`);
+      horizon.addColorStop(0.45, `rgba(222,151,79,${warm * 0.085 * intensity})`);
+      horizon.addColorStop(1, 'rgba(222,151,79,0)');
+      ctx.fillStyle = horizon;
+      ctx.fillRect(0, 0, innerWidth, innerHeight);
+    }
+
+    if (this.atmosphere.fog) {
+      const moisture = state.tiles.reduce((sum, tile) => sum + tile.moisture + tile.water * 0.65, 0) / Math.max(1, state.tiles.length);
+      const fogStrength = clamp((moisture - 0.36) * 0.28 + (state.seasonName === 'Winter' ? 0.045 : 0), 0, 0.16) * intensity;
+      if (fogStrength > 0.006) {
+        const drift = performance.now() * 0.000025;
+        ctx.save();
+        for (let band = 0; band < 3; band += 1) {
+          const y = innerHeight * (0.58 + band * 0.12) + Math.sin(drift + band * 1.9) * 24;
+          const gradient = ctx.createLinearGradient(0, y - 60, 0, y + 70);
+          gradient.addColorStop(0, 'rgba(203,221,215,0)');
+          gradient.addColorStop(0.5, `rgba(203,221,215,${fogStrength * (1 - band * 0.18)})`);
+          gradient.addColorStop(1, 'rgba(203,221,215,0)');
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, y - 70, innerWidth, 150);
+        }
+        ctx.restore();
+      }
+    }
+  }
+
+  private drawCinematicCaption(): void {
+    const caption = this.cinematicCaption;
+    if (!caption) return;
+    const ctx = this.ctx;
+    const maxWidth = Math.min(680, innerWidth - 64);
+    const x = innerWidth / 2;
+    const y = innerHeight - 112;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const panel = ctx.createLinearGradient(x - maxWidth / 2, 0, x + maxWidth / 2, 0);
+    panel.addColorStop(0, 'rgba(2,7,8,0)');
+    panel.addColorStop(0.12, 'rgba(2,7,8,.80)');
+    panel.addColorStop(0.88, 'rgba(2,7,8,.80)');
+    panel.addColorStop(1, 'rgba(2,7,8,0)');
+    ctx.fillStyle = panel;
+    ctx.fillRect(x - maxWidth / 2, y - 66, maxWidth, 116);
+    ctx.font = '700 10px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#98d5b4';
+    ctx.fillText(caption.eyebrow.toUpperCase(), x, y - 42);
+    ctx.font = '700 22px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#f0f5f1';
+    ctx.fillText(caption.title, x, y - 16);
+    ctx.font = '500 13px Inter, system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(229,238,233,.88)';
+    const words = caption.body.split(/\s+/);
+    const lines: string[] = [];
+    let line = '';
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (ctx.measureText(candidate).width > maxWidth - 80 && line) {
+        lines.push(line);
+        line = word;
+      } else line = candidate;
+      if (lines.length >= 1) break;
+    }
+    if (line && lines.length < 2) lines.push(line);
+    lines.slice(0, 2).forEach((value, index) => ctx.fillText(value, x, y + 12 + index * 19));
+    ctx.restore();
+  }
+
   render(state: PlanetState): void {
     this.updateCamera();
     const ctx = this.ctx;
@@ -555,6 +721,7 @@ export class Renderer {
       }
     }
 
+    this.drawCloudShadows(state, this.atmospherePhase(state));
     this.drawClimate(state);
 
     if (this.view === 'memory') {
@@ -659,5 +826,7 @@ export class Renderer {
     ctx.fillRect(0, 0, innerWidth, innerHeight);
     ctx.fillStyle = 'rgba(255,255,255,.035)';
     ctx.fillRect(0, 0, innerWidth, innerHeight);
+    this.drawAtmosphere(state);
+    this.drawCinematicCaption();
   }
 }

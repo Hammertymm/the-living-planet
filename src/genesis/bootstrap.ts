@@ -169,8 +169,8 @@ function startGenesis(bridge: LivingPlanetBridge): void {
   stewardRegion.innerHTML = bridge.regions().map((region) => `<option value="${region.id}">${escapeHtml(region.name)}</option>`).join('');
 
   function closeOtherPanels(): void {
-    for (const id of ['intelligence-panel', 'science-panel', 'chronicle', 'wildlife', 'worlds']) document.querySelector(`#${id}`)?.classList.add('hidden');
-    for (const id of ['intelligence-toggle', 'science-toggle', 'chronicle-toggle', 'wildlife-toggle', 'worlds-toggle']) document.querySelector(`#${id}`)?.classList.remove('active');
+    for (const id of ['intelligence-panel', 'science-panel', 'observatory-panel', 'chronicle', 'wildlife', 'lives', 'worlds']) document.querySelector(`#${id}`)?.classList.add('hidden');
+    for (const id of ['intelligence-toggle', 'science-toggle', 'observatory-toggle', 'chronicle-toggle', 'wildlife-toggle', 'lives-toggle', 'worlds-toggle']) document.querySelector(`#${id}`)?.classList.remove('active');
   }
 
   function setOpen(value: boolean): void {
@@ -179,6 +179,7 @@ function startGenesis(bridge: LivingPlanetBridge): void {
     toggle.classList.toggle('active', value);
     if (value) {
       closeOtherPanels();
+      window.dispatchEvent(new CustomEvent('living-planet-panel-open', { detail: { panel: 'genesis' } }));
       renderActive();
     }
   }

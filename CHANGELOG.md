@@ -1,5 +1,40 @@
 # Changelog
 
+## v3.0.0 — Living Observatory
+
+### Added
+
+- Scientific Naturalist with falsifiable ecological forecasts
+- Forecast due dates, evidence, confidence and automatic later resolution
+- Accuracy and calibration reporting across resolved predictions
+- Evidence-built field briefs, seasonal chapters and era documentaries
+- Caption rendering directly onto the planet canvas
+- Optional browser WebM recording of directed films
+- Markdown documentary dossier export
+- Per-world Observatory event, sample, prediction and film archive
+- Recent-history documentary replay
+- JSON Observatory archive export
+- Dynamic dawn, day, dusk and moonlit-night rendering
+- Moisture-driven fog and weather-dependent cloud shadows
+- Atmosphere presets, strength controls and off switch
+- New Observatory panel and `O` shortcut
+- Forecast and documentary records integrated into the grounded evidence ledger
+
+### Preserved
+
+- Animal hover identification
+- Manual camera priority
+- Deterministic simulation authority
+- Offline core operation
+- Approval requirement for live stewardship actions
+- Existing v1.x and v2.x save compatibility
+
+### Deliberately deferred
+
+- Ambient audio and procedural soundscape
+- Automatic narration audio
+- Any AI-generated ecological event
+
 ## v2.6.0 — Deep Ecology
 
 - Added functional ecological niches for plants, fungi, grazers, predators and scavengers.

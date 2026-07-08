@@ -119,10 +119,11 @@ export class EvidenceStore extends EventTarget {
     values?: EvidenceRecord['values'],
     day?: number,
     region?: string,
+    source: EvidenceRecord['source'] = 'experiment',
   ): void {
     const cleaned = cleanText(summary);
     if (!cleaned) return;
-    this.add(kind, 'experiment', cleaned, values, day, region);
+    this.add(kind, source, cleaned, values, day, region);
   }
 
   captureNaturalist(text: string): void {

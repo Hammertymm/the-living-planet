@@ -22,6 +22,15 @@ The Steward Planner runs several counterfactual experiments, scores them against
 
 A server-side Naturalist endpoint may convert bounded evidence into richer prose. API credentials remain server-side. Failure falls back to local analysis.
 
+
+## Layer 6 — Predictive naturalist
+
+The Observatory can issue falsifiable forecasts with a metric, threshold and due day. Forecasts are resolved against later deterministic samples and may be confirmed, partly confirmed, refuted or inconclusive. Accuracy is reported across the accumulated record.
+
+## Layer 7 — Evidence-built documentary direction
+
+The film system selects only archived events and current simulation subjects. Each shot carries an evidence reference and a known location. Optional WebM capture records the planet canvas and grounded captions without adding audio.
+
 ## Non-negotiable constraints
 
 - No AI call occurs on every simulation tick.
@@ -34,3 +43,4 @@ A server-side Naturalist endpoint may convert bounded evidence into richer prose
 ## v2.3 individual grounding
 
 The internal bridge now exposes bounded notable individual summaries. Future Naturalist and documentary reasoning may reference those lives, but names, roles, events and survival outcomes remain simulation-generated evidence.
+

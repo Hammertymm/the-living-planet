@@ -86,6 +86,27 @@ export function analyzeLocally(question: string, records: EvidenceRecord[]): Nat
   const previous = allSnapshots.length > 1 ? allSnapshots[Math.max(0, allSnapshots.length - 4)] : undefined;
   const population = populationQuestion(question);
 
+  if (/forecast|prediction|predict|expected/.test(lower)) {
+    const forecasts = evidence.filter((record) => record.kind === 'prediction' || record.kind === 'prediction_result').slice(-8);
+    if (!forecasts.length) {
+      return result(
+        'No registered forecasts yet',
+        'The Scientific Naturalist has not issued a falsifiable forecast. Open Observatory and create a forecast after the archive has collected several samples.',
+        evidence.slice(-2),
+        ['Forecasts require a future resolution date and cannot be inferred from prose alone.'],
+        'low',
+      );
+    }
+    const resolved = forecasts.filter((record) => record.kind === 'prediction_result');
+    return result(
+      resolved.length ? 'Forecast record and calibration' : 'Active ecological forecasts',
+      forecasts.map((record) => record.summary).join(' '),
+      forecasts,
+      ['Forecasts are hypotheses evaluated against later simulation evidence, not scripted outcomes.'],
+      resolved.length >= 2 ? 'high' : 'medium',
+    );
+  }
+
   if (/experiment|counterfactual|alternative future|what if|matched future/.test(lower)) {
     const experiments = evidence.filter((record) => record.kind === 'counterfactual_result').slice(-4);
     if (!experiments.length) {
@@ -172,7 +193,7 @@ export function analyzeLocally(question: string, records: EvidenceRecord[]): Nat
 }
 
 export function observationFromEvidence(record: EvidenceRecord, records: EvidenceRecord[]): NaturalistAnalysis | undefined {
-  if (!['population_change', 'extinction', 'recovery', 'world_event', 'climate_signal', 'counterfactual_result'].includes(record.kind)) return undefined;
+  if (!['population_change', 'extinction', 'recovery', 'world_event', 'climate_signal', 'counterfactual_result', 'prediction', 'prediction_result'].includes(record.kind)) return undefined;
   const related = records.filter((candidate) => candidate.id === record.id || (record.region && candidate.region === record.region)).slice(-5);
 
   if (record.kind === 'extinction') {
@@ -183,6 +204,12 @@ export function observationFromEvidence(record: EvidenceRecord, records: Evidenc
   }
   if (record.kind === 'counterfactual_result') {
     return result('A matched future has completed', record.summary, related, ['This comparison is evidence from simulated branches; it does not alter the live planet.'], 'high');
+  }
+  if (record.kind === 'prediction') {
+    return result('A falsifiable forecast has been registered', record.summary, related, ['The forecast remains provisional until its due day is reached.'], 'medium');
+  }
+  if (record.kind === 'prediction_result') {
+    return result('A forecast has been tested', record.summary, related, ['Calibration improves only across multiple resolved forecasts.'], 'high');
   }
   return result(record.region ? `Change in ${record.region}` : 'Meaningful change detected', record.summary, related, [], related.length >= 2 ? 'high' : 'medium');
 }

@@ -16,7 +16,7 @@ app.innerHTML = `
   <div class="topbar">
     <section class="brand">
       <h1>The Living Planet</h1>
-      <p>v2.6 · Deep Ecology</p><span class="save-status" id="save-status">Preparing world…</span>
+      <p>v3.0 · Living Observatory</p><span class="save-status" id="save-status">Preparing world…</span>
     </section>
     <section class="metrics" id="metrics"></section>
   </div>
@@ -183,7 +183,7 @@ app.innerHTML = `
 
   <aside class="hover-inspector hidden" id="hover-inspector" aria-live="polite"></aside>
 
-  <div class="help">Wheel zoom · R recenter · L labels · C chronicle · W wildlife · V lives · M worlds · I intelligence · X science · G genesis · D documentary · [ ] time flow · Space pause</div>
+  <div class="help">Wheel zoom · R recenter · L labels · C chronicle · W wildlife · V lives · M worlds · I intelligence · X science · G genesis · O observatory · D documentary · [ ] time flow · Space pause</div>
 </div>`;
 
 const canvas = document.querySelector<HTMLCanvasElement>('#world')!;
@@ -259,7 +259,7 @@ let chronicleSignature = '';
 let wildlifeSignature = '';
 let livesSignature = '';
 
-const APP_VERSION = '2.6.0';
+const APP_VERSION = '3.0.0';
 const AUTOSAVE_ID = 'autosave';
 
 function cleanWorldName(value: string, seed = sim.state.seed): string {
@@ -455,6 +455,7 @@ function setWorlds(open: boolean): void {
   worlds.classList.toggle('hidden', !open);
   worldsToggle.classList.toggle('active', open);
   if (open) {
+    window.dispatchEvent(new CustomEvent('living-planet-panel-open', { detail: { panel: 'worlds' } }));
     setChronicle(false);
     setWildlife(false);
     setLives(false);
@@ -717,6 +718,7 @@ function setChronicle(open: boolean): void {
   chronicle.classList.toggle('hidden', !open);
   chronicleToggle.classList.toggle('active', open);
   if (open) {
+    window.dispatchEvent(new CustomEvent('living-planet-panel-open', { detail: { panel: 'chronicle' } }));
     setWildlife(false);
     setLives(false);
     setWorlds(false);
@@ -772,6 +774,7 @@ function setWildlife(open: boolean): void {
   wildlife.classList.toggle('hidden', !open);
   wildlifeToggle.classList.toggle('active', open);
   if (open) {
+    window.dispatchEvent(new CustomEvent('living-planet-panel-open', { detail: { panel: 'wildlife' } }));
     chronicle.classList.add('hidden');
     chronicleToggle.classList.remove('active');
     setLives(false);
@@ -930,6 +933,7 @@ function setLives(open: boolean): void {
   lives.classList.toggle('hidden', !open);
   livesToggle.classList.toggle('active', open);
   if (open) {
+    window.dispatchEvent(new CustomEvent('living-planet-panel-open', { detail: { panel: 'lives' } }));
     setChronicle(false);
     setWildlife(false);
     setWorlds(false);
@@ -1185,7 +1189,7 @@ addEventListener('keydown', (event) => {
 });
 
 installLivingPlanetBridge({
-  version: '2.3.0',
+  version: '3.0.0',
   snapshot: () => sim.snapshot(),
   counts: () => sim.counts(),
   worldInfo: () => ({ name: currentWorldName, seed: sim.state.seed, day: sim.state.day, season: sim.state.seasonName }),
@@ -1219,6 +1223,9 @@ installLivingPlanetBridge({
   })),
   camera: () => renderer.camera,
   focus: (x, y, zoom) => renderer.setCinematicTarget(x, y, zoom ?? renderer.camera.zoom),
+  setCinematicCaption: (caption) => renderer.setCinematicCaption(caption),
+  atmosphere: () => renderer.atmosphere,
+  setAtmosphere: (settings) => renderer.setAtmosphere(settings),
   recenter: () => renderer.recenter(),
   documentary: () => documentaryMode,
   setDocumentary,

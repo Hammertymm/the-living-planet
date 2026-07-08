@@ -31,6 +31,20 @@ export interface PlanetWorldInfo {
   season: string;
 }
 
+export interface PlanetCinematicCaption {
+  eyebrow: string;
+  title: string;
+  body: string;
+}
+
+export interface PlanetAtmosphereState {
+  enabled: boolean;
+  intensity: number;
+  cycleSpeed: number;
+  fog: boolean;
+  cloudShadows: boolean;
+}
+
 export interface PlanetCameraState {
   x: number;
   y: number;
@@ -49,6 +63,9 @@ export interface LivingPlanetBridge {
   individuals(): PlanetIndividualSummary[];
   camera(): PlanetCameraState;
   focus(x: number, y: number, zoom?: number): void;
+  setCinematicCaption(caption?: PlanetCinematicCaption): void;
+  atmosphere(): PlanetAtmosphereState;
+  setAtmosphere(settings: Partial<PlanetAtmosphereState>): void;
   recenter(): void;
   documentary(): boolean;
   setDocumentary(enabled: boolean): void;
@@ -73,6 +90,9 @@ interface BridgeOptions {
   individuals: () => PlanetIndividualSummary[];
   camera: () => PlanetCameraState;
   focus: (x: number, y: number, zoom?: number) => void;
+  setCinematicCaption: (caption?: PlanetCinematicCaption) => void;
+  atmosphere: () => PlanetAtmosphereState;
+  setAtmosphere: (settings: Partial<PlanetAtmosphereState>) => void;
   recenter: () => void;
   documentary: () => boolean;
   setDocumentary: (enabled: boolean) => void;
@@ -98,6 +118,9 @@ export function installLivingPlanetBridge(options: BridgeOptions): LivingPlanetB
     individuals: () => structuredClone(options.individuals()),
     camera: () => ({ ...options.camera() }),
     focus: options.focus,
+    setCinematicCaption: options.setCinematicCaption,
+    atmosphere: () => ({ ...options.atmosphere() }),
+    setAtmosphere: options.setAtmosphere,
     recenter: options.recenter,
     documentary: options.documentary,
     setDocumentary: options.setDocumentary,

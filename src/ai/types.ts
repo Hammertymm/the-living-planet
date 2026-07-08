@@ -6,7 +6,10 @@ export type EvidenceKind =
   | 'recovery'
   | 'climate_signal'
   | 'world_event'
-  | 'counterfactual_result';
+  | 'counterfactual_result'
+  | 'prediction'
+  | 'prediction_result'
+  | 'documentary_record';
 
 export type Confidence = 'low' | 'medium' | 'high';
 
@@ -29,7 +32,7 @@ export interface EvidenceRecord {
   day?: number;
   region?: string;
   kind: EvidenceKind;
-  source: 'metrics' | 'naturalist' | 'derived' | 'experiment';
+  source: 'metrics' | 'naturalist' | 'derived' | 'experiment' | 'observatory';
   summary: string;
   values?: Record<string, number | string | boolean | null>;
 }

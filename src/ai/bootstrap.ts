@@ -120,6 +120,7 @@ function startIntelligence(): void {
           <button data-question="What is happening with predators?">Predators?</button>
           <button data-question="What is the role of fungi right now?">Fungi?</button>
           <button data-question="What did the latest counterfactual experiment show?">Experiment?</button>
+          <button data-question="What forecasts are active and how accurate have previous forecasts been?">Forecasts?</button>
         </div>
         <form id="ask-form" class="ask-form">
           <textarea id="ask-input" maxlength="280" rows="3" placeholder="Ask a question about this planet…"></textarea>
@@ -330,6 +331,19 @@ function startIntelligence(): void {
       baselineStability: result.baseline.meanStability,
       interventionStability: result.intervention.meanStability,
     }, result.endDay, result.regionName);
+  });
+
+
+  window.addEventListener('living-planet-observatory-evidence', (event) => {
+    const detail = (event as CustomEvent<{
+      kind: 'prediction' | 'prediction_result' | 'documentary_record';
+      summary: string;
+      values?: Record<string, number | string | boolean | null>;
+      day?: number;
+      region?: string;
+    }>).detail;
+    if (!detail?.summary) return;
+    store.captureExternal(detail.kind, detail.summary, detail.values, detail.day, detail.region, 'observatory');
   });
 
   document.addEventListener('keydown', (event) => {

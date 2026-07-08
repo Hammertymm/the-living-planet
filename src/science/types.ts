@@ -77,5 +77,7 @@ export interface DocumentaryShot {
   zoom: number;
   durationMs: number;
   day?: number;
-  kind: 'establishing' | 'event' | 'group' | 'closing';
+  kind: 'establishing' | 'event' | 'group' | 'individual' | 'landscape' | 'closing';
+  chapter?: string;
+  evidence?: string;
 }
