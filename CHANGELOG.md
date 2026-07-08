@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.6.0 — Deep Ecology
+
+- Added functional ecological niches for plants, fungi, grazers, predators and scavengers.
+- Connected niche suitability to growth, feeding efficiency, hunting success and energy demand.
+- Added wetland as a living biome that can form, expand, dry and return to grassland.
+- Added long-term succession, erosion and sediment state to every terrain cell.
+- Added gradual grassland-to-forest succession and fire/drought-driven reopening of forest.
+- Added long climate eras: temperate, wet, dry, cooling and fire-dominated intervals.
+- Climate eras now influence moisture, heat, weather-front balance and wildfire spread.
+- Added a Habitat observation layer for succession, wetland development and erosion.
+- Added current climate era to the Stewardship summary.
+- Added pointer-hover identification for animals only.
+- Hover cards show species, life stage, condition, group, region, niche and lineage, then disappear when the pointer leaves.
+- Removed individual animal camera following; biography focus remains a one-time locate action.
+- Preserved documentary Story Follow as a separate, explicitly enabled system.
+- Added automatic migration for existing v2.x saves lacking niche, succession and climate-era data.
+
+
 ## v2.3.0 — Living Creatures
 
 - Added named notable individuals without naming every simulated animal.

@@ -4,7 +4,10 @@ import { generateRegions, nearestRegion } from '../world/regions';
 import { groupCentroid, groupColor, groupName } from '../world/groups';
 import { averageGenome, genomeDistance, lineageColor, lineageName, mutateGenome, randomGenome, traitSummary } from '../world/genetics';
 import { individualName, lifeStage, notableRole, notableScore } from '../world/individuals';
+import { assignNiche, climateEraEffects, CLIMATE_ERA_NAMES, nicheSuitability } from '../world/ecology';
 import type {
+  ClimateEra,
+  ClimateEraKind,
   ClimateFront,
   ClimateFrontKind,
   Entity,
@@ -72,6 +75,18 @@ function cap(value: number, min: number, max: number): number {
 
 function isSocial(species: Species): species is SocialSpecies {
   return species === 'grazer' || species === 'predator' || species === 'scavenger';
+}
+
+function initialClimateEra(seed: number): ClimateEra {
+  const names = CLIMATE_ERA_NAMES.temperate;
+  return {
+    id: 'era-0',
+    kind: 'temperate',
+    name: names[Math.abs(seed) % names.length],
+    startedDay: 0,
+    expectedEndDay: 1800 + Math.abs(seed % 721),
+    intensity: 0.72 + (Math.abs(seed % 19) / 100),
+  };
 }
 
 function entity(
@@ -153,6 +168,8 @@ export class Simulation {
       windX: 0.035,
       windY: 0.008,
       seed,
+      climateEra: initialClimateEra(seed),
+      climateHistory: [],
     };
     this.seedWaterSystem();
     this.refreshWaterSources();
@@ -447,6 +464,7 @@ export class Simulation {
       lineage?.id ?? parent.lineageId,
       this.state.day,
     );
+    child.niche = assignNiche(child.species, this.tileAt(x, y), child.genome);
     if (parent.sex === 'female') child.motherId = parent.id;
     else if (parent.sex === 'male') child.fatherId = parent.id;
     parent.offspringCount = (parent.offspringCount ?? 0) + 1;
@@ -536,6 +554,7 @@ export class Simulation {
       const point = this.pointNearXY(x, y, radius, true);
       if (!point) continue;
       const created = entity(species, point.x, point.y, this.rng, groupId, breed, generation, lineage?.genome ?? randomGenome(species, this.rng), lineage?.id, this.state.day);
+      created.niche = assignNiche(species, this.tileAt(point.x, point.y), created.genome);
       this.state.entities.push(created);
       ids.push(created.id);
     }
@@ -670,6 +689,117 @@ export class Simulation {
     return 'Winter';
   }
 
+  private beginClimateEra(kind?: ClimateEraKind, announce = true): void {
+    const options: ClimateEraKind[] = ['temperate', 'wet', 'dry', 'cooling', 'fire'];
+    const previous = this.state.climateEra;
+    let selected = kind ?? this.rng.pick(options);
+    if (selected === previous?.kind) selected = options[(options.indexOf(selected) + 1 + this.rng.int(0, options.length - 2)) % options.length];
+    if (previous && this.state.day > previous.startedDay) {
+      this.state.climateHistory.push({ ...previous, endedDay: this.state.day });
+      this.state.climateHistory = this.state.climateHistory.slice(-12);
+    }
+    const names = CLIMATE_ERA_NAMES[selected];
+    const duration = this.rng.int(1500, 2850);
+    const era: ClimateEra = {
+      id: `era-${this.state.day}`,
+      kind: selected,
+      name: names[this.rng.int(0, names.length - 1)],
+      startedDay: this.state.day,
+      expectedEndDay: this.state.day + duration,
+      intensity: this.rng.range(0.68, 1),
+    };
+    this.state.climateEra = era;
+    if (announce) {
+      const region = this.randomRegion();
+      const descriptions: Record<ClimateEraKind, string> = {
+        temperate: 'Rainfall and temperature are settling into a more balanced interval.',
+        wet: 'Persistent rain is expanding wetlands and renewing river corridors.',
+        dry: 'Surface water is retreating and movement between refuges is becoming more important.',
+        cooling: 'Cooler seasons are slowing growth and favouring resilient lineages.',
+        fire: 'Heat, dryness and repeated burns are beginning to shape the landscape.',
+      };
+      this.note(`${era.name} has begun. ${descriptions[selected]}`, region.id, undefined, region.x, region.y, 3);
+    }
+  }
+
+  private updateClimateEra(): void {
+    if (!this.state.climateEra) this.state.climateEra = initialClimateEra(this.state.seed);
+    if (this.state.day >= this.state.climateEra.expectedEndDay) this.beginClimateEra(undefined, true);
+  }
+
+  private updateLivingLandscape(): void {
+    if (this.state.day % 30 !== 0) return;
+    const plantCells = new Uint16Array(W * H);
+    const grazerCells = new Uint16Array(W * H);
+    for (const current of this.state.entities) {
+      const index = idx(current.x, current.y);
+      if (current.species === 'plant') plantCells[index] += 1;
+      if (current.species === 'grazer') grazerCells[index] += 1;
+    }
+
+    let newWetlands = 0;
+    let newForests = 0;
+    let openedGround = 0;
+    let driedWetlands = 0;
+
+    for (let index = 0; index < this.state.tiles.length; index += 1) {
+      const tile = this.state.tiles[index];
+      if (tile.biome === 'ocean' || tile.biome === 'rock' || tile.biome === 'snow') continue;
+      const plants = Math.min(1, plantCells[index] / 3);
+      const grazing = Math.min(1, grazerCells[index] / 3);
+      const runoff = tile.water * (0.0022 + tile.erosion * 0.0012) + tile.fire * 0.0011 + tile.trail * 0.0007;
+      const rootProtection = plants * 0.0017 + tile.succession * 0.00045;
+      tile.erosion = cap(tile.erosion + runoff - rootProtection, 0, 1);
+      tile.sediment = cap(tile.sediment + tile.erosion * (tile.water > 0.16 ? 0.0013 : 0.00035) - 0.00018, 0, 1);
+      tile.succession = cap(
+        tile.succession
+          + tile.moisture * 0.0013
+          + tile.fertility * 0.0011
+          + plants * 0.0024
+          + tile.sediment * 0.0004
+          - tile.burn * 0.0021
+          - tile.trail * 0.0011
+          - grazing * 0.001,
+        0,
+        1,
+      );
+      tile.elevation = cap(tile.elevation - tile.erosion * 0.000015 + tile.sediment * 0.000012, 0, 1);
+
+      if ((tile.biome === 'grass' || tile.biome === 'shore') && tile.water > 0.46 && tile.moisture > 0.64 && tile.succession > 0.42) {
+        tile.biome = 'wetland';
+        tile.waterBase = Math.max(tile.waterBase, 0.3);
+        tile.succession = Math.max(tile.succession, 0.58);
+        newWetlands += 1;
+      } else if (tile.biome === 'wetland' && tile.water < 0.13 && tile.moisture < 0.38) {
+        tile.biome = 'grass';
+        tile.waterBase *= 0.82;
+        tile.succession = Math.min(tile.succession, 0.38);
+        driedWetlands += 1;
+      } else if (tile.biome === 'grass' && tile.succession > 0.82 && tile.moisture > 0.56 && tile.burn < 0.22 && tile.trail < 0.35) {
+        tile.biome = 'forest';
+        newForests += 1;
+      } else if (tile.biome === 'forest' && (tile.burn > 0.72 || tile.succession < 0.2 || tile.moisture < 0.16)) {
+        tile.biome = 'grass';
+        tile.succession = Math.min(tile.succession, 0.34);
+        openedGround += 1;
+      }
+    }
+
+    if (this.state.day % 360 === 0) {
+      const totalChange = newWetlands + newForests + openedGround + driedWetlands;
+      if (totalChange >= 8) {
+        const region = this.randomRegion();
+        const dominant = [
+          { count: newWetlands, text: 'wetlands are spreading into low ground' },
+          { count: newForests, text: 'young forest is closing over established grassland' },
+          { count: openedGround, text: 'fire and pressure are reopening forest into grassland' },
+          { count: driedWetlands, text: 'former wetlands are drying into open ground' },
+        ].sort((a, b) => b.count - a.count)[0];
+        this.note(`The living landscape is changing: ${dominant.text}. These shifts are now visible across the ${region.name}.`, region.id, undefined, region.x, region.y, 2);
+      }
+    }
+  }
+
   private createClimateFront(
     kind: ClimateFrontKind,
     x: number,
@@ -725,6 +855,7 @@ export class Simulation {
   }
 
   private updateClimate(): void {
+    const era = climateEraEffects(this.state.climateEra);
     const angle = this.state.season * Math.PI * 2;
     this.state.windX = Math.cos(angle * 0.72 + this.state.seed * 0.001) * 0.045 + Math.sin(this.state.day / 240) * 0.018;
     this.state.windY = Math.sin(angle * 0.88 + this.state.seed * 0.0007) * 0.032 + Math.cos(this.state.day / 310) * 0.012;
@@ -733,11 +864,14 @@ export class Simulation {
       const summerBias = this.state.seasonName === 'Summer';
       const winterBias = this.state.seasonName === 'Winter';
       const roll = this.rng.next();
-      const kind: ClimateFrontKind = roll < (summerBias ? 0.47 : 0.24)
+      const dryThreshold = cap((summerBias ? 0.47 : 0.24) + era.dryBias, 0.08, 0.72);
+      const stormThreshold = cap((winterBias ? 0.74 : 0.88) - era.stormBias, dryThreshold + 0.08, 0.96);
+      const rainLift = era.rainBias;
+      const kind: ClimateFrontKind = roll < dryThreshold
         ? 'dry'
-        : roll > (winterBias ? 0.74 : 0.88)
+        : roll > stormThreshold
           ? 'storm'
-          : 'rain';
+          : rainLift < -0.1 && roll < dryThreshold + 0.12 ? 'dry' : 'rain';
       const fromWest = this.rng.next() < 0.68;
       const x = fromWest ? -18 : W + 18;
       const y = this.rng.range(8, H - 8);
@@ -756,11 +890,11 @@ export class Simulation {
         this.affectCircle(front.x, front.y, front.radius, (tile, strength) => {
           const force = strength * front.intensity;
           if (front.kind === 'dry') {
-            tile.moisture = cap(tile.moisture - 0.0026 * force, 0, 1);
+            tile.moisture = cap(tile.moisture - 0.0026 * force + era.moisture * 0.35, 0, 1);
             tile.water = cap(tile.water - 0.0018 * force, 0, 1);
             tile.heat = cap(tile.heat + 0.0008 * force, 0, 1);
           } else {
-            tile.moisture = cap(tile.moisture + (front.kind === 'storm' ? 0.0048 : 0.0029) * force, 0, 1);
+            tile.moisture = cap(tile.moisture + (front.kind === 'storm' ? 0.0048 : 0.0029) * force + era.moisture * 0.35, 0, 1);
             tile.water = cap(tile.water + (front.kind === 'storm' ? 0.0036 : 0.0022) * force, 0, 1);
             tile.fertility = cap(tile.fertility + 0.00035 * force, 0, 1);
             tile.heat = cap(tile.heat - 0.00035 * force, 0, 1);
@@ -834,7 +968,7 @@ export class Simulation {
       const ny = cap(y + dy, 0, H - 1);
       const target = this.state.tiles[idx(nx, ny)];
       if (!isLand(target) || target.moisture > 0.7) continue;
-      const chance = source.fire * (1 - target.moisture) * 0.34;
+      const chance = source.fire * (1 - target.moisture) * 0.34 * climateEraEffects(this.state.climateEra).fire;
       if (this.rng.next() < chance) target.fire = cap(target.fire + source.fire * 0.52, 0, 1);
     }
   }
@@ -1198,9 +1332,11 @@ export class Simulation {
       this.note(messages[this.state.seasonName], region.id, undefined, region.x, region.y, 2);
     }
 
+    this.updateClimateEra();
     this.updateClimate();
     this.updateFire();
 
+    const eraEffects = climateEraEffects(this.state.climateEra);
     for (const tile of this.state.tiles) {
       tile.pressure *= 0.96;
       tile.trail *= 0.9992;
@@ -1208,13 +1344,16 @@ export class Simulation {
       const seasonal = Math.sin(this.state.season * Math.PI * 2);
       const summerDrying = this.state.seasonName === 'Summer' ? 0.00055 : 0;
       const winterRecovery = this.state.seasonName === 'Winter' ? 0.00022 : 0;
-      tile.moisture = cap(tile.moisture + seasonal * 0.00055 - 0.00018 - summerDrying + winterRecovery, 0, 1);
+      tile.moisture = cap(tile.moisture + seasonal * 0.00055 - 0.00018 - summerDrying + winterRecovery + eraEffects.moisture, 0, 1);
       const waterRecovery = (tile.waterBase - tile.water) * 0.0035;
       const seasonalWaterLoss = this.state.seasonName === 'Summer' ? 0.00036 * (0.55 + tile.heat) : 0.00006;
       const moistureRecharge = Math.max(0, tile.moisture - 0.68) * 0.0009;
-      tile.water = cap(tile.water + waterRecovery + moistureRecharge - seasonalWaterLoss, 0, 1);
-      tile.fertility = cap(tile.fertility + 0.00016 + tile.burn * 0.00012, 0, 1);
+      tile.water = cap(tile.water + waterRecovery + moistureRecharge - seasonalWaterLoss + Math.max(0, eraEffects.moisture) * 0.55, 0, 1);
+      tile.fertility = cap(tile.fertility + 0.00016 + tile.burn * 0.00012 + tile.sediment * 0.00003, 0, 1);
+      tile.heat = cap(tile.heat + eraEffects.heat, 0, 1);
     }
+
+    this.updateLivingLandscape();
 
     if (this.state.day % 120 === 1) this.redirectGroups();
 
@@ -1247,7 +1386,8 @@ export class Simulation {
         const pathPenalty = tile.trail * 0.018;
         const growthMultiplier = this.state.seasonName === 'Spring' ? 1.22 : this.state.seasonName === 'Summer' ? 0.88 : this.state.seasonName === 'Autumn' ? 0.96 : 0.68;
         const resilience = current.genome.resilience;
-        current.energy += (tile.moisture * 0.035 + tile.fertility * 0.025) * growthMultiplier * resilience - 0.018 * current.genome.metabolism - scarPenalty - pathPenalty - tile.fire * (1.8 / resilience);
+        const habitat = nicheSuitability(current, tile);
+        current.energy += (tile.moisture * 0.035 + tile.fertility * 0.025) * growthMultiplier * resilience * habitat - 0.018 * current.genome.metabolism - scarPenalty - pathPenalty - tile.fire * (1.8 / resilience);
         if (current.energy > 75 / current.genome.fertility && entities.length < MAX_ENTITIES && this.rng.next() < 0.015 * current.genome.fertility) {
           const nx = current.x + this.rng.range(-3, 3);
           const ny = current.y + this.rng.range(-3, 3);
@@ -1258,7 +1398,8 @@ export class Simulation {
           }
         }
       } else if (current.species === 'fungi') {
-        current.energy -= 0.015 * current.genome.metabolism + tile.fire * (1.25 / current.genome.resilience);
+        const habitat = nicheSuitability(current, tile);
+        current.energy -= (0.015 * current.genome.metabolism) / habitat + tile.fire * (1.25 / current.genome.resilience);
         const carrion = entities.find((other) => other.species === 'carrion' && dist(current, other) < 3);
         if (carrion) {
           current.energy += 0.7;
@@ -1370,11 +1511,13 @@ export class Simulation {
                 ? Math.min(0.19, targetGroup.memberIds.length * 0.0042 * target.genome.cooperation)
                   + (lifeStage(target) === 'juvenile' && targetGroup.memberIds.length >= 7 ? 0.07 : 0)
                 : 0;
+              const huntingNiche = nicheSuitability(current, tile);
               const successChance = cap(
                 0.44
                   + (current.genome.speed - target.genome.speed) * 0.22
                   + (current.genome.vision - target.genome.camouflage) * 0.18
                   + groupBonus
+                  + (huntingNiche - 1) * 0.18
                   - defensivePenalty,
                 0.12,
                 0.86,
@@ -1394,7 +1537,8 @@ export class Simulation {
                 current.cooldown = 12;
               }
             } else {
-              current.energy += target.species === 'plant' ? 15 : 11;
+              const feedingFit = nicheSuitability(current, tile);
+              current.energy += (target.species === 'plant' ? 15 : 11) * feedingFit;
               target.energy -= 999;
               current.cooldown = current.species === 'scavenger' ? 18 : 12;
             }
@@ -1404,7 +1548,8 @@ export class Simulation {
           current.vy += this.rng.range(-0.035, 0.035);
         }
 
-        current.energy -= (current.species === 'predator' ? 0.12 : current.species === 'grazer' ? 0.075 : 0.06) * current.genome.metabolism;
+        const habitat = nicheSuitability(current, tile);
+        current.energy -= ((current.species === 'predator' ? 0.12 : current.species === 'grazer' ? 0.075 : 0.06) * current.genome.metabolism) / habitat;
         const velocity = Math.hypot(current.vx, current.vy);
         if (velocity > speed) {
           current.vx = (current.vx / velocity) * speed;
@@ -1585,6 +1730,21 @@ export class Simulation {
     this.refreshLineages(false);
   }
 
+  private hydrateDeepEcology(): void {
+    for (const tile of this.state.tiles) {
+      tile.erosion = typeof tile.erosion === 'number' ? tile.erosion : 0;
+      tile.sediment = typeof tile.sediment === 'number' ? tile.sediment : 0;
+      tile.succession = typeof tile.succession === 'number'
+        ? tile.succession
+        : tile.biome === 'forest' ? 0.78 : tile.biome === 'wetland' ? 0.66 : tile.biome === 'grass' ? 0.36 : 0.18;
+    }
+    this.state.climateEra ??= initialClimateEra(this.state.seed);
+    this.state.climateHistory = Array.isArray(this.state.climateHistory) ? this.state.climateHistory : [];
+    for (const current of this.state.entities) {
+      if (!current.niche && current.species !== 'carrion') current.niche = assignNiche(current.species, this.tileAt(current.x, current.y), current.genome);
+    }
+  }
+
   snapshot(): SimulationSnapshot {
     return {
       schemaVersion: 1,
@@ -1637,6 +1797,7 @@ export class Simulation {
 
     this.hydrateLivingCreatures();
     this.hydrateGenetics();
+    this.hydrateDeepEcology();
     this.refreshGroupMembership(false);
   }
 

@@ -1,7 +1,7 @@
-export type Biome = 'ocean' | 'shore' | 'grass' | 'forest' | 'rock' | 'snow';
+export type Biome = 'ocean' | 'shore' | 'grass' | 'wetland' | 'forest' | 'rock' | 'snow';
 export type Species = 'plant' | 'grazer' | 'predator' | 'scavenger' | 'fungi' | 'carrion';
 export type SocialSpecies = 'grazer' | 'predator' | 'scavenger';
-export type ViewMode = 'natural' | 'moisture' | 'water' | 'soil' | 'pressure' | 'memory' | 'groups' | 'climate' | 'lineages';
+export type ViewMode = 'natural' | 'moisture' | 'water' | 'habitat' | 'soil' | 'pressure' | 'memory' | 'groups' | 'climate' | 'lineages';
 export type PlacementTool =
   | 'observe'
   | 'plants'
@@ -17,6 +17,45 @@ export type ClimateFrontKind = 'rain' | 'dry' | 'storm';
 export type SeasonName = 'Spring' | 'Summer' | 'Autumn' | 'Winter';
 export type AnimalSex = 'female' | 'male';
 export type NotableRole = 'founder' | 'matriarch' | 'pathfinder' | 'sentinel' | 'hunter' | 'scout' | 'elder' | 'survivor';
+
+export type EcologicalNiche =
+  | 'pioneer-grass'
+  | 'deep-root-shrub'
+  | 'wetland-reed'
+  | 'canopy-growth'
+  | 'firebloom'
+  | 'grass-feeder'
+  | 'browser'
+  | 'wetland-grazer'
+  | 'highland-grazer'
+  | 'migratory-generalist'
+  | 'pursuit-hunter'
+  | 'ambush-hunter'
+  | 'pack-hunter'
+  | 'solitary-stalker'
+  | 'waterhole-hunter'
+  | 'open-country-scavenger'
+  | 'wetland-forager'
+  | 'forest-forager'
+  | 'carrion-decomposer'
+  | 'root-symbiont'
+  | 'burn-scar-coloniser'
+  | 'wetland-fungus';
+
+export type ClimateEraKind = 'temperate' | 'wet' | 'dry' | 'cooling' | 'fire';
+
+export interface ClimateEra {
+  id: string;
+  kind: ClimateEraKind;
+  name: string;
+  startedDay: number;
+  expectedEndDay: number;
+  intensity: number;
+}
+
+export interface ClimateEraRecord extends ClimateEra {
+  endedDay: number;
+}
 
 export type LineageSpecies = Exclude<Species, 'carrion'>;
 
@@ -56,6 +95,9 @@ export interface Tile {
   fire: number;
   water: number;
   waterBase: number;
+  erosion: number;
+  sediment: number;
+  succession: number;
 }
 
 export interface Entity {
@@ -88,6 +130,7 @@ export interface Entity {
   name?: string;
   role?: NotableRole;
   history?: Array<{ day: number; text: string }>;
+  niche?: EcologicalNiche;
 }
 
 export interface Region {
@@ -176,6 +219,8 @@ export interface PlanetState {
   windX: number;
   windY: number;
   seed: number;
+  climateEra: ClimateEra;
+  climateHistory: ClimateEraRecord[];
 }
 
 export interface SimulationSnapshot {

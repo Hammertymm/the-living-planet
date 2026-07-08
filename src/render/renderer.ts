@@ -7,6 +7,7 @@ const biomeColors: Record<string, string> = {
   ocean: '#163d58',
   shore: '#887656',
   grass: '#395d35',
+  wetland: '#2f6353',
   forest: '#244b30',
   rock: '#555a5a',
   snow: '#c7d3d2',
@@ -18,6 +19,7 @@ const biomeRgb: Record<string, RGB> = {
   ocean: [22, 61, 88],
   shore: [136, 118, 86],
   grass: [57, 93, 53],
+  wetland: [47, 99, 83],
   forest: [36, 75, 48],
   rock: [85, 90, 90],
   snow: [199, 211, 210],
@@ -86,6 +88,7 @@ export class Renderer {
   private targetCamera: { x: number; y: number; zoom: number } | null = null;
   brush = { tool: 'observe' as PlacementTool, x: 0, y: 0, radius: 8, visible: false };
   highlightEntityId?: number;
+  hoverEntityId?: number;
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
@@ -172,11 +175,11 @@ export class Renderer {
       color = mix(color, [32, 83, 111], 0.12 + shimmer * 0.08);
       return rgb(color);
     }
-    if (tile.biome === 'grass' || tile.biome === 'forest') {
+    if (tile.biome === 'grass' || tile.biome === 'forest' || tile.biome === 'wetland') {
       const health = clamp(tile.moisture * 0.58 + tile.fertility * 0.42, 0, 1);
       color = mix(color, [29, 54, 35], 0.34 * (1 - health));
       if (state.seasonName === 'Summer') color = mix(color, [126, 111, 51], 0.22 + (1 - tile.moisture) * 0.25);
-      if (state.seasonName === 'Autumn') color = mix(color, [112, 76, 39], tile.biome === 'forest' ? 0.28 : 0.12);
+      if (state.seasonName === 'Autumn') color = mix(color, [112, 76, 39], tile.biome === 'forest' ? 0.28 : tile.biome === 'wetland' ? 0.08 : 0.12);
       if (state.seasonName === 'Winter') color = mix(color, [92, 105, 91], 0.28);
       if (state.seasonName === 'Spring') color = mix(color, [72, 126, 63], 0.18 * health);
     }
@@ -506,6 +509,7 @@ export class Renderer {
         let color = this.terrainColor(tile, state, x, y);
         if (this.view === 'moisture') color = `rgb(${20 + tile.moisture * 40},${45 + tile.moisture * 70},${65 + tile.moisture * 135})`;
         if (this.view === 'water') color = `rgb(${22 + tile.water * 34},${45 + tile.water * 112},${58 + tile.water * 168})`;
+        if (this.view === 'habitat') color = `rgb(${40 + tile.succession * 65 + tile.sediment * 55},${46 + tile.succession * 125},${39 + tile.water * 85 - tile.erosion * 22})`;
         if (this.view === 'soil') color = `rgb(${45 + tile.fertility * 90},${38 + tile.fertility * 95},${25 + tile.fertility * 35})`;
         if (this.view === 'pressure') color = `rgb(${40 + tile.pressure * 160},${50 - tile.pressure * 20},${42 - tile.pressure * 10})`;
         if (this.view === 'memory') {
@@ -601,6 +605,17 @@ export class Renderer {
       }
       ctx.fill();
       ctx.stroke();
+
+      if (current.id === this.hoverEntityId) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(238,248,242,.92)';
+        ctx.lineWidth = 1.7;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, radius * 2.45, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
 
       if (current.notable && this.camera.zoom >= 6.5) {
         const selected = current.id === this.highlightEntityId;

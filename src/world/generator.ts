@@ -27,10 +27,12 @@ export function generateTiles(w:number,h:number,seed:number): Tile[] {
     else if(elevation<.36) biome='shore';
     else if(elevation>.78 && heat<.45) biome='snow';
     else if(elevation>.70) biome='rock';
+    else if(moisture>.72 && elevation<.48) biome='wetland';
     else if(moisture>.58 && fertility>.52) biome='forest';
     const lowlandWater = Math.max(0, Math.min(1, (0.43 - elevation) * 1.8 + (moisture - 0.62) * 0.42));
     const waterBase = biome === 'ocean' ? 1 : biome === 'shore' ? 0.78 : lowlandWater;
-    tiles.push({elevation,moisture,fertility,heat,biome,pressure:0,trail:0,burn:0,fire:0,water:waterBase,waterBase});
+    const succession = biome === 'forest' ? 0.78 : biome === 'wetland' ? 0.66 : biome === 'grass' ? 0.36 : 0.18;
+    tiles.push({elevation,moisture,fertility,heat,biome,pressure:0,trail:0,burn:0,fire:0,water:waterBase,waterBase,erosion:0,sediment:0,succession});
   }
   return tiles;
 }

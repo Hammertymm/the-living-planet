@@ -57,4 +57,8 @@ Contains deterministic random generation, named regions, group naming/colour log
 
 Water is authoritative simulation state on each terrain tile through `water` and `waterBase`. Regional waterholes and a river network are generated deterministically. Climate and stewardship alter current water, while the base value drives gradual recovery. A cached water-source index prevents thirsty-animal navigation from scanning the entire map each step.
 
-The main application owns the Lives panel and explicit individual-follow camera mode. The renderer may highlight a selected individual but cannot mutate its state.
+The main application owns the Lives panel, one-time biography focus and pointer-hover animal identification. Hover inspection is non-interactive and disappears on pointer exit; the renderer may highlight the hovered animal but cannot mutate its state.
+
+## Deep ecology
+
+`src/world/ecology.ts` assigns functional niches, bounded habitat suitability and long climate-era effects. Terrain cells retain succession, erosion and sediment, allowing biome transitions to emerge from water, roots, grazing, trails and fire. See `DEEP_ECOLOGY_ARCHITECTURE.md`.

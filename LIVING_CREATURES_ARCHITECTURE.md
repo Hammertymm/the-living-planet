@@ -32,3 +32,7 @@ Each tile has current water and a long-term base. Deterministic regional waterho
 - Water navigation uses a periodically refreshed source index.
 - Water and behavioural state remain numeric and serialisable.
 - No AI call occurs inside the simulation loop.
+
+## Observation interaction
+
+The Lives panel can locate a notable animal once, but it does not continuously follow animals. Pointer-hover inspection identifies nearby grazers, predators and scavengers in world coordinates and presents a temporary non-interactive field card.

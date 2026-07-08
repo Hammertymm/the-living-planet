@@ -1,39 +1,78 @@
-# The Living Planet v2.3 — Living Creatures
+# The Living Planet v2.6 — Deep Ecology
 
 A browser-based living ecosystem designed to be watched, explored, questioned and gently influenced.
 
-## v2.3 — Living Creatures
+## v2.6 — Deep Ecology
 
-This release makes the planet easier to care about by adding a small cast of recognisable animals and making water part of animal survival and migration.
+This release completes the next planned evolutionary bundle after Living Creatures: ecological niches, a landscape that changes through deep time, and multi-year climate eras.
 
-### Lives worth following
+### Functional ecological niches
 
-- Each herd, pack and scavenger colony begins with a recognised founder or leader.
-- The Naturalist promotes a limited number of notable adults rather than naming every animal.
-- Notable animals retain names, roles, age, family output, hunting record and a short life history.
-- Leadership passes to a successor when a group leader dies.
-- Open **Lives** or press `V` to inspect, focus or explicitly follow an individual.
-- Manual pan, zoom or recenter immediately ends individual follow.
+Plants, fungi and animals now occupy distinct ecological roles rather than behaving only as broad species categories.
 
-### Behavioural ecology
+Examples include:
 
-- Juveniles remain closer to their group and flee predators more strongly.
-- Predators prefer vulnerable, injured, exhausted or young prey.
-- Large cooperative herds reduce predator hunting success.
-- Animals now experience thirst, fatigue, fear and recoverable injury.
-- Notable births, hunts, migrations, adulthood, elderhood, succession and death enter individual history.
+- pioneer grass, deep-root shrub, wetland reed, canopy growth and firebloom
+- grass feeder, browser, wetland grazer, highland grazer and migratory generalist
+- pursuit hunter, ambush hunter, pack hunter, solitary stalker and waterhole hunter
+- open-country, wetland and forest scavengers
+- carrion decomposers, root symbionts, burn-scar colonisers and wetland fungi
 
-### Water and migration
+Niche suitability changes growth, feeding efficiency, hunting success and energy demand. It remains bounded so genetics, weather, food, water and predation still determine the outcome.
 
-- Deterministic rivers, waterholes and named crossings are added to every world.
-- Rain, drought, summer heat and wildfire change surface water.
-- Animals seek water when thirsty.
-- Herd migration scores food, water, predators and landscape pressure together.
-- A new **Water** view reveals active water availability.
-- Existing v2.x saves are upgraded when loaded; their original ecology and history remain intact.
+### Living landscape
 
-The Living Planet combines a deterministic ecology simulation with a grounded intelligence layer. Weather, plants, fungi, grazers, predators, scavengers, social groups, genetic lineages and landscape memory evolve from the simulation. AI and analytical systems may interpret or compare those outcomes, but they do not invent the planet's reality.
+Terrain now retains succession, erosion and sediment in addition to moisture, fertility, water, trails, burns and active fire.
 
+Over long periods:
+
+- wetlands can form in saturated lowlands
+- wetlands can dry back into grassland
+- undisturbed moist grassland can mature into forest
+- fire, drought and ecological pressure can reopen forest
+- roots reduce erosion
+- water, fire and trails increase erosion and move sediment
+
+Use the new **Habitat** view to see the combined pattern of succession, wetland development and erosion.
+
+### Climate eras
+
+The annual seasons now sit inside longer planetary intervals:
+
+- temperate
+- wet
+- dry
+- cooling
+- fire-dominated
+
+Each era lasts roughly 1,500–2,850 simulation days and changes rainfall balance, heat, water retention and fire spread. Era transitions are recorded by the Naturalist and appear in planetary memory.
+
+### Animal hover identification
+
+Hover directly over a grazer, predator or scavenger. A small temporary card shows:
+
+- identity or animal number
+- species and life stage
+- current condition
+- group
+- region
+- ecological niche
+- lineage
+
+The card disappears immediately when the pointer moves away. It does not select, pause or follow the animal.
+
+### Living Creatures retained
+
+- notable animal biographies and leadership succession
+- juvenile, adult and elder life stages
+- thirst, fatigue, fear and injury
+- vulnerable-prey selection and cooperative herd defence
+- deterministic rivers, waterholes and migration
+- one-time biography focus from the **Lives** panel
+
+Individual animal camera following has been removed. Documentary **Story Follow** remains a separate optional mode for significant world events.
+
+The simulation remains the source of truth. AI and analytical systems may explain or compare outcomes, but cannot invent ecology or silently change the live world.
 
 ## v2.0.3 interface refinement
 
@@ -149,7 +188,7 @@ http://localhost:5173
 ## Upgrade an existing copy
 
 1. Stop Vite with `Ctrl+C`.
-2. Extract the v2.0.1 ZIP over `C:\Projects\the-living-planet`.
+2. Extract the v2.6 ZIP over `C:\Projects\the-living-planet`.
 3. Allow Windows to replace matching files.
 4. Run the commands above.
 
@@ -159,7 +198,7 @@ After testing:
 
 ```powershell
 git add .
-git commit -m "Fix herd growth and forage balance"
+git commit -m "Release Deep Ecology with niches landscapes and climate eras"
 git push
 ```
 

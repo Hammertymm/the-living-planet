@@ -1100,3 +1100,93 @@ body.documentary-mode .lives {
   .lives { left: 12px; right: 12px; width: auto; max-height: 54vh; }
   .lives-list { max-height: 39vh; }
 }
+
+/* v2.6 field identification: lightweight animal hover card */
+.hover-inspector {
+  position: fixed;
+  z-index: 45;
+  width: min(252px, calc(100vw - 24px));
+  padding: 11px 12px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-left: 3px solid var(--animal-color, #dce8e2);
+  border-radius: 14px;
+  color: #e9f1ee;
+  background: rgba(3, 8, 8, .91);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 14px 38px rgba(0,0,0,.42);
+  pointer-events: none;
+}
+.hover-inspector.species-grazer { --animal-color: #f0dc6c; }
+.hover-inspector.species-predator { --animal-color: #ef6767; }
+.hover-inspector.species-scavenger { --animal-color: #75d8e5; }
+.hover-animal-heading {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+.hover-animal-mark {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border: 1px solid color-mix(in srgb, var(--animal-color) 65%, transparent);
+  border-radius: 50%;
+  color: var(--animal-color);
+  background: color-mix(in srgb, var(--animal-color) 13%, transparent);
+  font-size: 12px;
+}
+.hover-animal-heading strong {
+  display: block;
+  overflow: hidden;
+  color: #f1f7f4;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hover-animal-heading small {
+  display: block;
+  margin-top: 2px;
+  color: #8fa49d;
+  font-size: 9px;
+  text-transform: capitalize;
+}
+.hover-inspector dl {
+  display: grid;
+  gap: 4px;
+  margin: 9px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+.hover-inspector dl div {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 9px;
+  line-height: 1.3;
+}
+.hover-inspector dt {
+  color: #71877f;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.hover-inspector dd {
+  overflow: hidden;
+  margin: 0;
+  color: #cbd9d3;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+.hover-animal-legacy {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  color: var(--animal-color);
+  font-size: 9px;
+  text-transform: capitalize;
+}
+body.documentary-mode .hover-inspector { display: none !important; }
