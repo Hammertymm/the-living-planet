@@ -126,3 +126,15 @@ export interface PlanetState {
   windY: number;
   seed: number;
 }
+
+export interface SimulationSnapshot {
+  schemaVersion: 1;
+  state: PlanetState;
+  rngState: number;
+  counters: {
+    nextEntityId: number;
+    nextGroupId: number;
+    nextLandmarkId: number;
+    nextClimateFrontId: number;
+  };
+}

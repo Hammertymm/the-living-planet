@@ -35,6 +35,7 @@ canvas.painting { cursor: crosshair; }
 .viewbar,
 .chronicle,
 .wildlife,
+.worlds,
 .open-tools {
   border: 1px solid rgba(255,255,255,.10);
   background: rgba(3, 8, 8, .68);
@@ -139,7 +140,8 @@ button.active {
 .naturalist h2,
 .stewardship h2,
 .wildlife h2,
-.chronicle h2 {
+.chronicle h2,
+.worlds h2 {
   margin: 0;
   font-size: 11px;
   letter-spacing: .18em;
@@ -439,7 +441,7 @@ input[type="range"] {
   .viewbar { top: 78px; max-width: calc(100vw - 32px); overflow-x: auto; }
   .stewardship { top: 132px; right: 12px; width: 276px; max-height: calc(100vh - 210px); }
   .naturalist { left: 12px; bottom: 12px; width: min(390px, calc(100vw - 24px)); }
-  .chronicle, .wildlife { right: 12px; bottom: 12px; width: min(380px, calc(100vw - 24px)); }
+  .chronicle, .wildlife, .worlds { right: 12px; bottom: 12px; width: min(380px, calc(100vw - 24px)); }
   .help { display: none; }
 }
 
@@ -449,7 +451,7 @@ input[type="range"] {
   .viewbar button:nth-child(-n+4) { display: none; }
   .stewardship { left: 12px; right: 12px; width: auto; }
   .naturalist { font-size: 12px; }
-  .chronicle, .wildlife { left: 12px; right: 12px; width: auto; max-height: 48vh; }
+  .chronicle, .wildlife, .worlds { left: 12px; right: 12px; width: auto; max-height: 48vh; }
 }
 
 /* v0.9 climate and documentary additions */
@@ -508,6 +510,7 @@ body.documentary-mode .stewardship,
 body.documentary-mode .open-tools,
 body.documentary-mode .chronicle,
 body.documentary-mode .wildlife,
+body.documentary-mode .worlds,
 body.documentary-mode .help {
   opacity: 0;
   pointer-events: none;
@@ -561,4 +564,189 @@ body.documentary-mode canvas {
 @media (max-width: 680px) {
   .documentary-dock { top: auto; bottom: 126px; right: 12px; left: 12px; justify-content: center; }
   body.documentary-mode .naturalist { bottom: 12px; }
+}
+
+
+/* v1.0 persistent world library */
+.save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  color: #8fa79e;
+  font-size: 10px;
+  letter-spacing: .03em;
+}
+.save-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #70857d;
+  box-shadow: 0 0 0 3px rgba(112,133,125,.10);
+}
+.save-status[data-state="busy"]::before { background: #ddbb69; animation: save-pulse 1s infinite; }
+.save-status[data-state="saved"]::before { background: #79d69a; }
+.save-status[data-state="error"] { color: #e5a092; }
+.save-status[data-state="error"]::before { background: #dc6757; }
+@keyframes save-pulse { 50% { opacity: .35; transform: scale(.78); } }
+
+.worlds {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: min(430px, calc(100vw - 32px));
+  max-height: min(660px, calc(100vh - 150px));
+  border-radius: 20px;
+  padding: 12px;
+  overflow: auto;
+  pointer-events: auto;
+}
+.world-name-control {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 9px;
+}
+.world-name-control > span,
+.section-label {
+  color: #8fa49d;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+.world-name-control input,
+.new-world-fields input {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 12px;
+  outline: none;
+  color: #e9f1ee;
+  background: rgba(255,255,255,.055);
+  padding: 10px 11px;
+}
+.world-name-control input:focus,
+.new-world-fields input:focus { border-color: rgba(116,215,149,.58); }
+.world-identity {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-bottom: 10px;
+}
+.world-identity > div {
+  position: relative;
+  min-height: 50px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  background: rgba(255,255,255,.032);
+}
+.world-identity span {
+  color: #7f948d;
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.world-identity strong { color: #dfece6; font-size: 12px; }
+.world-identity button {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  color: #9fc9af;
+  font-size: 8px;
+}
+.world-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.world-actions .primary-action {
+  border-color: rgba(116,215,149,.48);
+  background: rgba(116,215,149,.16);
+}
+.new-world-block {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(255,255,255,.09);
+}
+.new-world-fields {
+  display: grid;
+  grid-template-columns: 1.2fr .8fr auto;
+  gap: 7px;
+  margin-top: 7px;
+}
+.new-world-fields input { min-width: 0; padding: 9px; font-size: 11px; }
+.library-label { margin: 13px 0 7px; }
+.world-list { display: grid; gap: 7px; }
+.world-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  background: rgba(255,255,255,.028);
+  overflow: hidden;
+}
+.world-load {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+.world-card-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.world-card-heading strong {
+  overflow: hidden;
+  color: #e6f0eb;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.world-card-heading em {
+  flex: 0 0 auto;
+  color: #7f958d;
+  font-size: 9px;
+  font-style: normal;
+}
+.world-card-meta,
+.world-card-life { color: #9badA6; font-size: 10px; }
+.world-card small { color: #6f847c; font-size: 9px; }
+.world-delete {
+  align-self: stretch;
+  width: 34px;
+  border: 0;
+  border-left: 1px solid rgba(255,255,255,.07);
+  border-radius: 0;
+  color: #a88982;
+  background: rgba(255,255,255,.018);
+  font-size: 17px;
+}
+.empty-library {
+  padding: 15px;
+  border: 1px dashed rgba(255,255,255,.10);
+  border-radius: 13px;
+  color: #7f948d;
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: center;
+}
+.empty-library.error { color: #d59a8d; }
+
+@media (max-width: 580px) {
+  .world-identity { grid-template-columns: 1fr 1fr; }
+  .new-world-fields { grid-template-columns: 1fr 1fr; }
+  .new-world-fields button { grid-column: 1 / -1; }
 }

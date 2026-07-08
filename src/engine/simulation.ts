@@ -14,6 +14,7 @@ import type {
   SocialSpecies,
   Species,
   SeasonName,
+  SimulationSnapshot,
   Tile,
 } from '../world/types';
 
@@ -937,4 +938,51 @@ export class Simulation {
       }
     }
   }
+  snapshot(): SimulationSnapshot {
+    return {
+      schemaVersion: 1,
+      state: this.state,
+      rngState: this.rng.getState(),
+      counters: {
+        nextEntityId: nextId,
+        nextGroupId,
+        nextLandmarkId,
+        nextClimateFrontId,
+      },
+    };
+  }
+
+  restore(snapshot: SimulationSnapshot): void {
+    if (!snapshot || snapshot.schemaVersion !== 1) throw new Error('Unsupported world save format.');
+    if (!snapshot.state || snapshot.state.tiles.length !== W * H) throw new Error('The saved world has incompatible dimensions.');
+
+    this.state = structuredClone(snapshot.state);
+    this.rng.setState(snapshot.rngState ?? this.state.seed);
+
+    const counters = snapshot.counters;
+    nextId = Math.max(
+      counters?.nextEntityId ?? 1,
+      ...this.state.entities.map((current) => current.id + 1),
+      1,
+    );
+    nextGroupId = Math.max(
+      counters?.nextGroupId ?? 1,
+      ...this.state.groups.map((group) => Number(group.id.match(/\d+$/)?.[0] ?? 0) + 1),
+      1,
+    );
+    nextLandmarkId = Math.max(
+      counters?.nextLandmarkId ?? 1,
+      ...this.state.landmarks.map((landmark) => Number(landmark.id.match(/\d+$/)?.[0] ?? 0) + 1),
+      1,
+    );
+    nextClimateFrontId = Math.max(
+      counters?.nextClimateFrontId ?? 1,
+      ...this.state.climateFronts.map((front) => Number(front.id.match(/\d+$/)?.[0] ?? 0) + 1),
+      1,
+    );
+
+    this.refreshGroupMembership(false);
+  }
+
+
 }

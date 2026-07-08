@@ -1,6 +1,8 @@
 import './styles.css';
 import { Simulation } from './engine/simulation';
 import { Renderer } from './render/renderer';
+import { isWorldSave, listWorlds, loadWorld, removeWorld, saveWorld } from './persistence/worldStore';
+import type { WorldSave, WorldSaveMetadata } from './persistence/worldStore';
 import type { PlacementTool, SocialGroup, ViewMode } from './world/types';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -11,7 +13,7 @@ app.innerHTML = `
   <div class="topbar">
     <section class="brand">
       <h1>The Living Planet</h1>
-      <p>v0.9 · Climate, Seasons & Documentary</p>
+      <p>v1.0 · Persistent Living Planet</p><span class="save-status" id="save-status">Preparing world…</span>
     </section>
     <section class="metrics" id="metrics"></section>
   </div>
@@ -30,6 +32,7 @@ app.innerHTML = `
     <button id="recenter">Recenter</button>
     <button id="chronicle-toggle">Chronicle</button>
     <button id="wildlife-toggle">Wildlife</button>
+    <button id="worlds-toggle">Worlds</button>
     <button id="director-toggle">Story follow</button>
     <button id="documentary-toggle">Documentary</button>
   </div>
@@ -102,17 +105,58 @@ app.innerHTML = `
     <div class="wildlife-list" id="wildlife-list"></div>
   </section>
 
+  <section class="worlds hidden" id="worlds">
+    <div class="panel-heading">
+      <div>
+        <h2>World Library</h2>
+        <p>Save, resume, export or begin another living world.</p>
+      </div>
+      <button id="close-worlds" class="icon-button" title="Close world library">×</button>
+    </div>
+
+    <label class="world-name-control" for="world-name">
+      <span>Current world</span>
+      <input id="world-name" type="text" maxlength="48" value="Eden-4319" />
+    </label>
+    <div class="world-identity" id="world-identity"></div>
+
+    <div class="world-actions">
+      <button id="save-world" class="primary-action">Save world</button>
+      <button id="capture-world">Screenshot</button>
+      <button id="export-world">Export file</button>
+      <button id="import-world">Import file</button>
+      <input id="import-file" type="file" accept="application/json,.json,.planet" hidden />
+    </div>
+
+    <div class="new-world-block">
+      <div class="section-label">Begin another planet</div>
+      <div class="new-world-fields">
+        <input id="new-world-name" type="text" maxlength="48" placeholder="World name" />
+        <input id="new-world-seed" type="number" min="1" max="999999999" placeholder="Seed" />
+        <button id="new-world">Create</button>
+      </div>
+    </div>
+
+    <div class="section-label library-label">Saved worlds</div>
+    <div class="world-list" id="world-list"></div>
+  </section>
+
   <div class="documentary-dock" id="documentary-dock">
     <button id="documentary-exit">Exit documentary</button>
     <button id="documentary-director">Story follow: off</button>
   </div>
 
-  <div class="help">Wheel zoom · R recenter · L labels · C chronicle · W wildlife · D documentary · F story follow · [ ] time flow · Space pause · Esc observe</div>
+  <div class="help">Wheel zoom · R recenter · L labels · C chronicle · W wildlife · M worlds · Ctrl+S save · D documentary · F story follow · [ ] time flow · Space pause · Esc observe</div>
 </div>`;
 
 const canvas = document.querySelector<HTMLCanvasElement>('#world')!;
-const sim = new Simulation(4319);
+let sim = new Simulation(4319);
 const renderer = new Renderer(canvas);
+let currentWorldName = 'Eden-4319';
+let currentManualSaveId: string | undefined;
+let lastAutosavedDay = -1;
+let saveInFlight = false;
+let ready = false;
 let paused = false;
 let last = performance.now();
 let accumulator = 0;
@@ -155,12 +199,348 @@ const wildlifeList = document.querySelector<HTMLElement>('#wildlife-list')!;
 const wildlifeToggle = document.querySelector<HTMLButtonElement>('#wildlife-toggle')!;
 const registrySummary = document.querySelector<HTMLElement>('#registry-summary')!;
 const climateSummary = document.querySelector<HTMLElement>('#climate-summary')!;
+const saveStatus = document.querySelector<HTMLElement>('#save-status')!;
+const worlds = document.querySelector<HTMLElement>('#worlds')!;
+const worldsToggle = document.querySelector<HTMLButtonElement>('#worlds-toggle')!;
+const worldNameInput = document.querySelector<HTMLInputElement>('#world-name')!;
+const worldIdentity = document.querySelector<HTMLElement>('#world-identity')!;
+const worldList = document.querySelector<HTMLElement>('#world-list')!;
+const importFile = document.querySelector<HTMLInputElement>('#import-file')!;
+const newWorldNameInput = document.querySelector<HTMLInputElement>('#new-world-name')!;
+const newWorldSeedInput = document.querySelector<HTMLInputElement>('#new-world-seed')!;
 const documentaryToggle = document.querySelector<HTMLButtonElement>('#documentary-toggle')!;
 const documentaryExit = document.querySelector<HTMLButtonElement>('#documentary-exit')!;
 const directorToggle = document.querySelector<HTMLButtonElement>('#director-toggle')!;
 const documentaryDirector = document.querySelector<HTMLButtonElement>('#documentary-director')!;
 let chronicleSignature = '';
 let wildlifeSignature = '';
+
+const APP_VERSION = '1.0.0';
+const AUTOSAVE_ID = 'autosave';
+
+function cleanWorldName(value: string, seed = sim.state.seed): string {
+  const cleaned = value.trim().replace(/\s+/g, ' ').slice(0, 48);
+  return cleaned || `Eden-${seed}`;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>'"]/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;',
+  }[character] ?? character));
+}
+
+function setSaveStatus(message: string, state: 'idle' | 'busy' | 'saved' | 'error' = 'idle'): void {
+  saveStatus.textContent = message;
+  saveStatus.dataset.state = state;
+}
+
+function worldSummary(): WorldSave['summary'] {
+  const counts = sim.counts();
+  return {
+    plants: counts.plant,
+    grazers: counts.grazer,
+    predators: counts.predator,
+    scavengers: counts.scavenger,
+    fungi: counts.fungi,
+    groups: sim.state.groups.length,
+    landmarks: sim.state.landmarks.length,
+  };
+}
+
+function buildWorldSave(kind: 'autosave' | 'manual', id: string): WorldSave {
+  currentWorldName = cleanWorldName(worldNameInput.value);
+  worldNameInput.value = currentWorldName;
+  return {
+    id,
+    name: currentWorldName,
+    kind,
+    savedAt: Date.now(),
+    day: sim.state.day,
+    seed: sim.state.seed,
+    season: sim.state.seasonName,
+    appVersion: APP_VERSION,
+    summary: worldSummary(),
+    format: 'the-living-planet-world',
+    schemaVersion: 1,
+    simulation: sim.snapshot(),
+    settings: {
+      camera: { ...renderer.camera },
+      view: renderer.view,
+      showLabels: renderer.showLabels,
+      timeRateIndex,
+      brushRadius,
+      directorEnabled,
+    },
+  };
+}
+
+function updateWorldIdentity(): void {
+  const summary = worldSummary();
+  worldIdentity.innerHTML = `
+    <div><span>Seed</span><strong>${sim.state.seed}</strong><button id="copy-seed" title="Copy seed">Copy</button></div>
+    <div><span>Age</span><strong>Day ${sim.state.day}</strong></div>
+    <div><span>Living groups</span><strong>${summary.groups}</strong></div>
+    <div><span>World memory</span><strong>${summary.landmarks} landmarks</strong></div>`;
+  worldIdentity.querySelector<HTMLButtonElement>('#copy-seed')?.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(String(sim.state.seed));
+    setSaveStatus('Seed copied', 'saved');
+  });
+}
+
+function resetUiAfterWorldChange(): void {
+  lastUiDay = -1;
+  chronicleSignature = '';
+  wildlifeSignature = '';
+  accumulator = 0;
+  last = performance.now();
+  selectTool('observe');
+  setDocumentary(false);
+  setChronicle(false);
+  setWildlife(false);
+  renderer.brush.visible = false;
+  drawMetrics(true);
+  drawChronicle(true);
+  drawWildlife(true);
+  updateWorldIdentity();
+}
+
+function applyWorldSave(world: WorldSave, manualId?: string): void {
+  const restored = new Simulation(world.seed);
+  restored.restore(world.simulation);
+  sim = restored;
+  currentWorldName = cleanWorldName(world.name, world.seed);
+  currentManualSaveId = manualId ?? (world.kind === 'manual' ? world.id : undefined);
+  worldNameInput.value = currentWorldName;
+  const settings = world.settings ?? {
+    camera: { x: sim.width / 2, y: sim.height / 2, zoom: 7 },
+    view: 'natural' as ViewMode,
+    showLabels: true,
+    timeRateIndex: 2,
+    brushRadius: 8,
+    directorEnabled: false,
+  };
+  renderer.camera = { ...settings.camera };
+  renderer.view = settings.view;
+  renderer.showLabels = settings.showLabels;
+  labelsButton.classList.toggle('active', renderer.showLabels);
+  brushRadius = Math.max(2, Math.min(22, settings.brushRadius ?? 8));
+  brushInput.value = String(brushRadius);
+  brushValue.textContent = String(brushRadius);
+  renderer.brush.radius = brushRadius;
+  setTimeRate(settings.timeRateIndex ?? 2);
+  setDirector(Boolean(settings.directorEnabled));
+  document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.view === renderer.view);
+  });
+  lastAutosavedDay = world.day;
+  resetUiAfterWorldChange();
+}
+
+function timeAgo(timestamp: number): string {
+  const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+  if (seconds < 10) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function savedWorldCard(world: WorldSaveMetadata): string {
+  const kind = world.kind === 'autosave' ? 'Automatic recovery' : 'Saved world';
+  return `<article class="world-card" data-world-id="${world.id}">
+    <button class="world-load" data-load-world="${world.id}">
+      <span class="world-card-heading"><strong>${escapeHtml(world.name)}</strong><em>${kind}</em></span>
+      <span class="world-card-meta">Day ${world.day} · ${world.season} · Seed ${world.seed}</span>
+      <span class="world-card-life">${world.summary.grazers} grazers · ${world.summary.predators} predators · ${world.summary.groups} groups</span>
+      <small>Saved ${timeAgo(world.savedAt)}</small>
+    </button>
+    ${world.kind === 'manual' ? `<button class="world-delete" data-delete-world="${world.id}" title="Delete ${escapeHtml(world.name)}">×</button>` : ''}
+  </article>`;
+}
+
+async function drawWorldLibrary(): Promise<void> {
+  try {
+    const saves = await listWorlds();
+    worldList.innerHTML = saves.length > 0
+      ? saves.map(savedWorldCard).join('')
+      : '<div class="empty-library">No saved worlds yet. Autosave begins as soon as the planet moves.</div>';
+
+    worldList.querySelectorAll<HTMLButtonElement>('[data-load-world]').forEach((button) => {
+      button.onclick = async () => {
+        const id = button.dataset.loadWorld;
+        if (!id) return;
+        setSaveStatus('Opening world…', 'busy');
+        const world = await loadWorld(id);
+        if (!world) return setSaveStatus('World could not be found', 'error');
+        applyWorldSave(world, world.kind === 'manual' ? id : undefined);
+        setSaveStatus(`Opened ${world.name}`, 'saved');
+        setWorlds(false);
+      };
+    });
+
+    worldList.querySelectorAll<HTMLButtonElement>('[data-delete-world]').forEach((button) => {
+      button.onclick = async () => {
+        const id = button.dataset.deleteWorld;
+        if (!id) return;
+        const metadata = saves.find((entry) => entry.id === id);
+        if (!confirm(`Delete ${metadata?.name ?? 'this saved world'}?`)) return;
+        await removeWorld(id);
+        if (currentManualSaveId === id) currentManualSaveId = undefined;
+        await drawWorldLibrary();
+        setSaveStatus('Saved world deleted', 'idle');
+      };
+    });
+  } catch (error) {
+    console.error(error);
+    worldList.innerHTML = '<div class="empty-library error">The browser could not open the world library.</div>';
+  }
+}
+
+function setWorlds(open: boolean): void {
+  worlds.classList.toggle('hidden', !open);
+  worldsToggle.classList.toggle('active', open);
+  if (open) {
+    setChronicle(false);
+    setWildlife(false);
+    updateWorldIdentity();
+    void drawWorldLibrary();
+  }
+}
+
+async function persistCurrentWorld(kind: 'autosave' | 'manual'): Promise<void> {
+  if (saveInFlight || !ready) return;
+  if (kind === 'autosave' && sim.state.day === lastAutosavedDay) return;
+  saveInFlight = true;
+  const id = kind === 'autosave' ? AUTOSAVE_ID : (currentManualSaveId ?? `world-${crypto.randomUUID()}`);
+  try {
+    setSaveStatus(kind === 'autosave' ? 'Autosaving…' : 'Saving world…', 'busy');
+    const world = buildWorldSave(kind, id);
+    await saveWorld(world);
+    if (kind === 'manual') currentManualSaveId = id;
+    lastAutosavedDay = sim.state.day;
+    setSaveStatus(`${kind === 'autosave' ? 'Autosaved' : 'Saved'} · Day ${sim.state.day}`, 'saved');
+    if (!worlds.classList.contains('hidden')) await drawWorldLibrary();
+  } catch (error) {
+    console.error(error);
+    setSaveStatus('Save failed', 'error');
+  } finally {
+    saveInFlight = false;
+  }
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function safeFilename(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'living-planet';
+}
+
+async function exportCurrentWorld(): Promise<void> {
+  const world = buildWorldSave('manual', currentManualSaveId ?? `export-${Date.now()}`);
+  const blob = new Blob([JSON.stringify(world)], { type: 'application/json' });
+  downloadBlob(blob, `${safeFilename(world.name)}-day-${world.day}.planet.json`);
+  setSaveStatus('World file exported', 'saved');
+}
+
+async function captureWorld(): Promise<void> {
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) return setSaveStatus('Screenshot failed', 'error');
+  downloadBlob(blob, `${safeFilename(currentWorldName)}-day-${sim.state.day}.png`);
+  setSaveStatus('Planet screenshot captured', 'saved');
+}
+
+async function importWorldFile(file: File): Promise<void> {
+  try {
+    const parsed: unknown = JSON.parse(await file.text());
+    if (!isWorldSave(parsed)) throw new Error('Unsupported file');
+    const imported: WorldSave = {
+      ...parsed,
+      id: `world-${crypto.randomUUID()}`,
+      kind: 'manual',
+      savedAt: Date.now(),
+      appVersion: APP_VERSION,
+    };
+    await saveWorld(imported);
+    applyWorldSave(imported, imported.id);
+    setSaveStatus(`Imported ${imported.name}`, 'saved');
+    await drawWorldLibrary();
+  } catch (error) {
+    console.error(error);
+    setSaveStatus('That file is not a valid Living Planet world', 'error');
+  } finally {
+    importFile.value = '';
+  }
+}
+
+function randomSeed(): number {
+  return Math.floor(1 + Math.random() * 999_999_998);
+}
+
+async function beginNewWorld(): Promise<void> {
+  if (!confirm('Begin a new planet? The current world will be archived in your World Library first.')) return;
+  try {
+    setSaveStatus('Archiving current world…', 'busy');
+    const archiveId = currentManualSaveId ?? `world-${crypto.randomUUID()}`;
+    await saveWorld(buildWorldSave('manual', archiveId));
+
+    const seed = Math.max(1, Math.min(999_999_999, Number(newWorldSeedInput.value) || randomSeed()));
+    const name = cleanWorldName(newWorldNameInput.value, seed);
+    sim = new Simulation(seed);
+    currentWorldName = name;
+    currentManualSaveId = undefined;
+    lastAutosavedDay = -1;
+    worldNameInput.value = name;
+    newWorldNameInput.value = '';
+    newWorldSeedInput.value = '';
+    renderer.recenter();
+    renderer.view = 'natural';
+    renderer.showLabels = true;
+    labelsButton.classList.add('active');
+    setTimeRate(2);
+    setDirector(false);
+    resetUiAfterWorldChange();
+    setSaveStatus(`New world · Seed ${seed}`, 'idle');
+    await persistCurrentWorld('autosave');
+    setWorlds(false);
+  } catch (error) {
+    console.error(error);
+    setSaveStatus('Could not begin a new world', 'error');
+  }
+}
+
+async function bootWorld(): Promise<void> {
+  try {
+    const autosave = await loadWorld(AUTOSAVE_ID);
+    if (autosave && isWorldSave(autosave)) {
+      applyWorldSave(autosave);
+      setSaveStatus(`Resumed ${autosave.name} · Day ${autosave.day}`, 'saved');
+    } else {
+      worldNameInput.value = currentWorldName;
+      updateWorldIdentity();
+      setSaveStatus('New world · Autosave ready', 'idle');
+    }
+  } catch (error) {
+    console.error(error);
+    setSaveStatus('World library unavailable · Session only', 'error');
+  } finally {
+    ready = true;
+    drawMetrics(true);
+    drawChronicle(true);
+    drawWildlife(true);
+  }
+}
 
 function groupLocation(group: SocialGroup): { x: number; y: number } {
   return sim.groupLocation(group);
@@ -201,6 +581,7 @@ function setDocumentary(enabled: boolean): void {
     selectTool('observe');
     setChronicle(false);
     setWildlife(false);
+    setWorlds(false);
     renderer.view = 'natural';
     document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((button) => button.classList.toggle('active', button.dataset.view === 'natural'));
   }
@@ -244,6 +625,7 @@ function drawMetrics(force = false): void {
   noteElement.innerHTML = note
     ? `${note.text}<small>Day ${note.day}${region ? ` · ${region.name}` : ''}${group ? ` · ${group.name}` : ''}</small>`
     : 'The planet is quiet.';
+  if (!worlds.classList.contains('hidden')) updateWorldIdentity();
 }
 
 function focusNote(index: number): void {
@@ -275,6 +657,7 @@ function setChronicle(open: boolean): void {
   chronicleToggle.classList.toggle('active', open);
   if (open) {
     setWildlife(false);
+    setWorlds(false);
     drawChronicle(true);
   }
 }
@@ -328,6 +711,7 @@ function setWildlife(open: boolean): void {
   if (open) {
     chronicle.classList.add('hidden');
     chronicleToggle.classList.remove('active');
+    setWorlds(false);
     drawWildlife(true);
   }
 }
@@ -336,7 +720,7 @@ function frame(time: number): void {
   const delta = Math.min(200, time - last);
   last = time;
   accumulator += delta;
-  if (!paused) {
+  if (!paused && ready) {
     const stepInterval = BASE_STEP_MS / timeRate;
     let stepsThisFrame = 0;
     while (accumulator >= stepInterval && stepsThisFrame < 12) {
@@ -422,6 +806,22 @@ chronicleToggle.onclick = () => setChronicle(chronicle.classList.contains('hidde
 document.querySelector<HTMLButtonElement>('#close-chronicle')!.onclick = () => setChronicle(false);
 wildlifeToggle.onclick = () => setWildlife(wildlife.classList.contains('hidden'));
 document.querySelector<HTMLButtonElement>('#close-wildlife')!.onclick = () => setWildlife(false);
+worldsToggle.onclick = () => setWorlds(worlds.classList.contains('hidden'));
+document.querySelector<HTMLButtonElement>('#close-worlds')!.onclick = () => setWorlds(false);
+worldNameInput.onchange = () => {
+  currentWorldName = cleanWorldName(worldNameInput.value);
+  worldNameInput.value = currentWorldName;
+  setSaveStatus('World renamed · save to keep it', 'idle');
+};
+document.querySelector<HTMLButtonElement>('#save-world')!.onclick = () => void persistCurrentWorld('manual');
+document.querySelector<HTMLButtonElement>('#capture-world')!.onclick = () => void captureWorld();
+document.querySelector<HTMLButtonElement>('#export-world')!.onclick = () => void exportCurrentWorld();
+document.querySelector<HTMLButtonElement>('#import-world')!.onclick = () => importFile.click();
+importFile.onchange = () => {
+  const file = importFile.files?.[0];
+  if (file) void importWorldFile(file);
+};
+document.querySelector<HTMLButtonElement>('#new-world')!.onclick = () => void beginNewWorld();
 directorToggle.onclick = () => setDirector(!directorEnabled);
 documentaryDirector.onclick = () => setDirector(!directorEnabled);
 documentaryToggle.onclick = () => setDocumentary(!documentaryMode);
@@ -533,6 +933,7 @@ const shortcutTools: Record<string, PlacementTool> = {
 };
 
 addEventListener('keydown', (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); void persistCurrentWorld('manual'); return; }
   if (event.key === '[') { event.preventDefault(); setTimeRate(timeRateIndex - 1); return; }
   if (event.key === ']') { event.preventDefault(); setTimeRate(timeRateIndex + 1); return; }
   if (event.code === 'Space') {
@@ -545,6 +946,7 @@ addEventListener('keydown', (event) => {
   if (event.key.toLowerCase() === 'l') labelsButton.click();
   if (event.key.toLowerCase() === 'c') chronicleToggle.click();
   if (event.key.toLowerCase() === 'w') wildlifeToggle.click();
+  if (event.key.toLowerCase() === 'm') worldsToggle.click();
   if (event.key.toLowerCase() === 'd') setDocumentary(!documentaryMode);
   if (event.key.toLowerCase() === 'f') setDirector(!directorEnabled);
   if (shortcutTools[event.key]) selectTool(shortcutTools[event.key]);
@@ -556,3 +958,10 @@ drawChronicle(true);
 drawWildlife(true);
 setDirector(false);
 setDocumentary(false);
+
+setInterval(() => void persistCurrentWorld('autosave'), 45_000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') void persistCurrentWorld('autosave');
+});
+addEventListener('beforeunload', () => { void persistCurrentWorld('autosave'); });
+void bootWorld();

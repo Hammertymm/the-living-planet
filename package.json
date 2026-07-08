@@ -1,16 +1,16 @@
 {
   "name": "the-living-planet",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "check": "tsc --noEmit",
     "preview": "vite preview"
   },
   "devDependencies": {
-    "@vitejs/plugin-legacy": "latest",
-    "typescript": "latest",
-    "vite": "latest"
+    "typescript": "6.0.3",
+    "vite": "8.1.3"
   }
 }

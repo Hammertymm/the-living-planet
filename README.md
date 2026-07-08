@@ -1,78 +1,126 @@
-# The Living Planet v0.9 — Climate, Seasons & Documentary
+# The Living Planet v1.0
 
 A browser-based living ecosystem designed to be watched, explored and gently influenced.
 
-This phase keeps the established fundamentals intact: manual camera control, named regions, direct placement tools, named herds and packs, World Chronicle, Living Registry and adjustable time flow. It adds a continuous climate system and a cleaner observation experience.
+The planet contains persistent terrain, climate, seasons, plants, fungi, grazers, predators, scavengers, named social groups, landscape memory and a Naturalist that records significant events. v1.0 adds the first complete world-persistence system so a planet can develop over many sessions.
 
-## New in v0.9
+## New in v1.0
 
-### Moving climate
+### Persistent worlds
 
-- Rain fronts, dry air masses and storm cells now move across the planet.
-- Weather changes soil moisture, heat and fertility continuously rather than only when a tool is clicked.
-- Prevailing wind changes gradually through the year.
-- The new **Climate** view shows active fronts and wind direction.
-- Rain and drought placed with the mouse create local moving weather systems.
+- The current planet automatically saves in the browser every 45 seconds while time is moving.
+- The latest autosave is resumed when the application opens again.
+- Manual saves can be created and updated from the **Worlds** panel.
+- Multiple named worlds can coexist in the local World Library.
+- Creating a new planet automatically archives the current one first.
+- Camera position, selected view, labels, time flow and brush radius are restored with the world.
 
-### Four visible seasons
+Browser saves use IndexedDB. They remain on that browser and device unless exported.
 
-- Spring accelerates plant growth.
-- Summer dries exposed ground and changes vegetation colour.
-- Autumn shifts forests and grasslands toward warmer tones.
-- Winter slows growth and gives the planet a cooler visual character.
-- Seasonal transitions are recorded by the Naturalist and World Chronicle.
+### Portable world files
 
-### Living fire
+- Export a complete planet as a `.planet.json` file.
+- Import exported worlds on another computer or browser.
+- Copy the deterministic world seed.
+- Capture a clean PNG image of the visible planet canvas.
 
-- Wildfire is no longer only an instant circular removal.
-- Active fire can spread downwind through dry land.
-- Animals attempt to flee burning ground.
-- Burn scars remain part of World Memory and enrich soil during recovery.
-- Dry storm cells can create rare lightning fires.
+### Stable world identity
 
-### Documentary mode
+Each world now has:
 
-- Press **D** or select **Documentary** to fade away research controls.
-- The Naturalist becomes a centred documentary caption.
-- The camera remains manual by default.
-- Optional **Story follow** can gently move the camera toward major events.
-- Story follow is disabled by default and turns off immediately when you manually pan or zoom.
+- A user-editable name
+- A deterministic seed
+- Current age and season
+- Population and social-group summary
+- Persistent Chronicle, landmarks, routes and burn scars
+- Full simulation random state, allowing the world to continue rather than merely restart from its seed
 
-### Stability improvements
+### Existing systems retained
 
-- Ecological recovery now protects long-running worlds from silently losing entire trophic roles.
-- Small grazer, predator, scavenger and fungal populations can recover when resources support them.
-- A 4,000-day automated simulation smoke test retains plants, grazers, predators, scavengers and fungi.
+- Manual camera control with optional Story Follow
+- Named geographic regions
+- Direct mouse placement tools
+- Adjustable time flow
+- Moving climate fronts and four seasons
+- Living wildfire and ecological succession
+- Named grazer herds, predator packs and scavenger colonies
+- World Chronicle and Living Registry
+- Natural, moisture, soil, pressure, memory, groups and climate views
+- Documentary mode
 
-## Run locally
+## Install and run
+
+From the project folder:
 
 ```powershell
 npm install
 npm run dev
 ```
 
-Open the address shown by Vite, normally `http://localhost:5173`.
+Open the local address printed by Vite, normally:
 
-## Controls
+```text
+http://localhost:5173
+```
 
-- Mouse wheel: zoom
-- Drag in Observe mode: pan
-- Shift-drag or right-drag with a tool selected: pan
-- `0–9`: select stewardship tools
-- `[` / `]`: slower / faster time
-- `Space`: pause/resume
-- `R`: recenter
-- `L`: region labels
-- `C`: World Chronicle
-- `W`: Living Registry
-- `D`: Documentary mode
-- `F`: Story follow
-- `Esc`: Observe mode
+## Upgrade an existing local copy
 
-## Production build
+Extract the v1.0 ZIP over the existing repository folder, then run:
 
 ```powershell
+npm install
+npm run dev
+```
+
+After testing:
+
+```powershell
+git add .
+git commit -m "Release The Living Planet v1.0"
+git push
+```
+
+## Main controls
+
+| Control | Action |
+|---|---|
+| Mouse wheel | Zoom around the pointer |
+| Drag in Observe mode | Pan |
+| Shift-drag or right-drag with a tool | Pan while a tool is selected |
+| `0–9` | Select stewardship tools |
+| `[` / `]` | Slow down / accelerate time |
+| `Space` | Pause or resume |
+| `R` | Recenter |
+| `L` | Toggle region labels |
+| `C` | World Chronicle |
+| `W` | Living Registry |
+| `M` | World Library |
+| `Ctrl+S` | Save the current world |
+| `D` | Documentary mode |
+| `F` | Optional Story Follow |
+| `Esc` | Return to Observe mode |
+
+## Stewardship tools
+
+- Plant growth
+- Grazer herd
+- Predator pack
+- Scavengers
+- Fungal colony
+- Rain front
+- Drought
+- Fertile soil
+- Wildfire
+
+The tools influence a living system; they do not directly script the outcome.
+
+## Production check
+
+```powershell
+npm run check
 npm run build
 ```
 
-The TypeScript and Vite production build has been verified for this release.
+## Save-data note
+
+Clearing browser site data will remove local World Library saves. Export important worlds before clearing browser storage or changing computers.
