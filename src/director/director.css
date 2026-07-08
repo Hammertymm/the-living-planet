@@ -1,0 +1,346 @@
+.director-panel-toggle.directing::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #c6ff77;
+  box-shadow: 0 0 12px rgba(198, 255, 119, 0.8);
+}
+
+.director-panel {
+  position: fixed;
+  right: 18px;
+  bottom: 52px;
+  z-index: 58;
+  width: min(390px, calc(100vw - 36px));
+  max-height: min(76vh, 720px);
+  overflow: hidden;
+  color: #f2f6ed;
+  background: rgba(10, 15, 13, 0.94);
+  border: 1px solid rgba(198, 255, 119, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.46);
+  backdrop-filter: blur(18px);
+}
+
+.director-panel.hidden,
+.director-page.hidden,
+.director-caption.hidden {
+  display: none;
+}
+
+.director-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.director-heading h2 {
+  margin: 2px 0 0;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.director-eyebrow,
+.director-section-label {
+  display: block;
+  color: #aab7aa;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.director-close {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 21px;
+}
+
+.director-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 8px;
+  gap: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.director-tabs button {
+  padding: 9px 8px;
+  border-radius: 9px;
+}
+
+.director-tabs button.active {
+  color: #10170f;
+  background: #c6ff77;
+  border-color: #c6ff77;
+}
+
+.director-body {
+  max-height: calc(min(76vh, 720px) - 108px);
+  overflow-y: auto;
+}
+
+.director-page {
+  padding: 15px;
+}
+
+.director-state {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.director-state > div {
+  min-width: 0;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+}
+
+.director-state span {
+  display: block;
+  color: #89968c;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.director-state strong {
+  display: block;
+  margin-top: 5px;
+  overflow: hidden;
+  color: #edf5e7;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.director-actions,
+.reel-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.director-primary,
+.director-primary.active {
+  color: #10170f !important;
+  background: #c6ff77 !important;
+  border-color: #c6ff77 !important;
+}
+
+.director-current {
+  display: grid;
+  gap: 8px;
+}
+
+.director-story {
+  display: block;
+  width: 100%;
+  padding: 13px;
+  color: inherit;
+  text-align: left;
+  background: linear-gradient(145deg, rgba(198, 255, 119, 0.08), rgba(255, 255, 255, 0.025));
+  border: 1px solid rgba(198, 255, 119, 0.14);
+  border-radius: 12px;
+}
+
+.director-story:hover {
+  transform: translateY(-1px);
+  border-color: rgba(198, 255, 119, 0.35);
+}
+
+.director-story.compact {
+  padding: 11px;
+}
+
+.director-story-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #8f9c92;
+  font-size: 10px;
+}
+
+.director-story-meta em {
+  overflow: hidden;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.director-story-title {
+  display: block;
+  margin-top: 7px;
+  color: #f4f8ef;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 17px;
+}
+
+.director-story-copy {
+  display: -webkit-box;
+  margin-top: 6px;
+  overflow: hidden;
+  color: #bdc8bd;
+  font-size: 12px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.director-reel {
+  display: grid;
+  gap: 8px;
+}
+
+.reel-intro,
+.director-safety,
+.director-empty {
+  margin-bottom: 12px;
+  padding: 12px;
+  color: #aeb9af;
+  font-size: 12px;
+  line-height: 1.5;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+}
+
+.director-empty {
+  display: grid;
+  gap: 5px;
+}
+
+.director-empty strong {
+  color: #edf5e7;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 16px;
+}
+
+.director-setting {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+}
+
+.director-setting input {
+  margin-top: 3px;
+}
+
+.director-setting span,
+.director-setting small {
+  display: block;
+}
+
+.director-setting small {
+  margin-top: 3px;
+  color: #8d998f;
+  line-height: 1.35;
+}
+
+.director-pace {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+}
+
+.director-pace span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.director-caption {
+  position: fixed;
+  left: 50%;
+  bottom: 36px;
+  z-index: 42;
+  width: min(620px, calc(100vw - 48px));
+  padding: 13px 18px;
+  transform: translateX(-50%);
+  text-align: center;
+  color: #eef5e9;
+  background: linear-gradient(180deg, rgba(8, 13, 11, 0.72), rgba(8, 13, 11, 0.9));
+  border: 1px solid rgba(198, 255, 119, 0.16);
+  border-radius: 14px;
+  box-shadow: 0 14px 46px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+
+.director-caption-kicker {
+  display: block;
+  color: #a7b3a8;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+.director-caption strong {
+  display: block;
+  margin-top: 4px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 18px;
+}
+
+.director-caption small {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #bac4ba;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.documentary-mode .director-panel {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .director-panel {
+    right: 10px;
+    bottom: 44px;
+    width: calc(100vw - 20px);
+  }
+
+  .director-state {
+    grid-template-columns: 1fr;
+  }
+
+  .director-actions,
+  .reel-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .director-caption {
+    bottom: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .director-story:hover {
+    transform: none;
+  }
+}
